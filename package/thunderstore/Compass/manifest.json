@@ -1,0 +1,7 @@
+{
+  "name": "Compass",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/shudnal/Compass",
+  "description": "Yet another Compass. Compatible with aedenthorn's png files. Performant and configurable.",
+  "dependencies": ["denikson-BepInExPack_Valheim-5.4.2202"]
+}

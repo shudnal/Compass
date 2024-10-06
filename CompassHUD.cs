@@ -143,6 +143,9 @@ namespace Compass
 
         public static void InitializeCompass()
         {
+            pinsList.Clear();
+            tempPins.Clear();
+
             ImageFileInfo compass = ImageFileInfo.GetImageInfo(fileNameCompass);
             if (!compass.initialized)
             {

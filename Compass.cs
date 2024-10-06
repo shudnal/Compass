@@ -15,7 +15,7 @@ namespace Compass
     {
         public const string pluginID = "shudnal.Compass";
         public const string pluginName = "Compass";
-        public const string pluginVersion = "1.0.0";
+        public const string pluginVersion = "1.0.1";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 

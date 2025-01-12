@@ -2,10 +2,12 @@
 using System;
 using System.IO;
 using UnityEngine;
-using static Compass.Compass;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Linq;
+using BepInEx.Configuration;
+using TMPro;
+using static Compass.Compass;
 
 namespace Compass
 {
@@ -20,12 +22,14 @@ namespace Compass
         private const string objectRootName = "Compass_Parent";
         private const string objectOverlayName = "Overlay";
         private const string objectUnderlayName = "Underlay";
+        private const string objectGlobalMaskName = "GlobalMask";
         private const string objectMaskName = "Mask";
         private const string objectCompassName = "Compass";
         private const string objectCenterName = "Center";
         private const string objectPinsRootName = "Pins";
         private const string objectPinElementName = "PinElement";
         private const string objectPinElementCheckedName = "Checked";
+        private const string objectPinElementNameName = "Name";
 
         private static readonly int layerUI = LayerMask.NameToLayer("UI");
 
@@ -34,6 +38,10 @@ namespace Compass
         public static GameObject centerObject;
         public static RectTransform pinsRootObject;
         public static RectTransform pinElement;
+        public static RectTransform compassTransform;
+
+        public static Mask maskComponent;
+        public static Image maskImage;
 
         public static float scaleFactor = 1f;
         public static float compassWidth;
@@ -44,12 +52,15 @@ namespace Compass
         public static HashSet<string> filteredNames = new HashSet<string>();
         public static HashSet<string> filteredWildcards = new HashSet<string>();
 
+        private static Transform AnchorTransform => orientation.Value == OrientationType.Camera ? GameCamera.instance?.transform : Player.m_localPlayer?.transform;
+
         public class PinElement
         {
             public string name;
             public RectTransform rect;
             public Image image;
             public GameObject checkedIcon;
+            public TMP_Text text;
 
             public PinElement()
             {
@@ -58,6 +69,7 @@ namespace Compass
                 
                 image = rect.GetComponent<Image>();
                 checkedIcon = rect.Find(objectPinElementCheckedName)?.gameObject;
+                text = rect.Find(objectPinElementNameName)?.GetComponent<TMP_Text>();
 
                 pinsList.Add(this);
             }
@@ -190,22 +202,33 @@ namespace Compass
             underlayObject.transform.SetParent(parentObject.transform, false);
             ImageFileInfo.SetGameObject(fileNameUnderlay, underlayObject).UpdateGameObject();
 
-            // Mask object
-            GameObject maskObject = new GameObject(objectMaskName, typeof(RectTransform))
+            // Global mask object
+            GameObject mask2DObject = new GameObject(objectGlobalMaskName, typeof(RectTransform))
             {
                 layer = layerUI
             };
-            maskObject.transform.SetParent(parentObject.transform, false);
-            mask.SetGameObject(maskObject);
+            mask2DObject.transform.SetParent(parentObject.transform, false);
+            mask2DObject.AddComponent<RectMask2D>();
+            mask2DObject.GetComponent<RectTransform>().sizeDelta = new Vector2(1600f, 100f);
+
+            // Mask object
+            GameObject maskImageObject = new GameObject(objectMaskName, typeof(RectTransform))
+            {
+                layer = layerUI
+            };
+            maskImageObject.transform.SetParent(mask2DObject.transform, false);
+            mask.SetGameObject(maskImageObject);
             UpdateMaskObject();
-            maskObject.AddComponent<Mask>().showMaskGraphic = false;
+            maskComponent = maskImageObject.AddComponent<Mask>();
+            maskComponent.showMaskGraphic = false;
+            maskImage = maskImageObject.GetComponent<Image>();
 
             // Compass object
             compassObject = new GameObject(objectCompassName, typeof(RectTransform))
             {
                 layer = layerUI
             };
-            compassObject.transform.SetParent(maskObject.transform, false);
+            compassObject.transform.SetParent(maskImageObject.transform, false);
             compass.SetGameObject(compassObject).UpdateGameObject();
             compass.textureChanged = (Action)Delegate.Combine(new Action(UpdateParentObject), new Action(UpdateCompassObject), new Action(UpdateMaskObject));
 
@@ -214,7 +237,7 @@ namespace Compass
             {
                 layer = layerUI
             };
-            centerObject.transform.SetParent(maskObject.transform, false);
+            centerObject.transform.SetParent(maskImageObject.transform, false);
             center.SetGameObject(centerObject).UpdateGameObject();
 
             // Pins root object
@@ -222,7 +245,7 @@ namespace Compass
             {
                 layer = layerUI
             }.GetComponent<RectTransform>();
-            pinsRootObject.transform.SetParent(maskObject.transform, false);
+            pinsRootObject.SetParent(maskImageObject.transform, false);
 
             // Pin element
             pinElement = new GameObject(objectPinElementName, typeof(RectTransform))
@@ -236,6 +259,11 @@ namespace Compass
             GameObject checkedPin = UnityEngine.Object.Instantiate(Minimap.instance.m_pinPrefab.transform.Find(objectPinElementCheckedName).gameObject, pinElement);
             checkedPin.name = objectPinElementCheckedName;
             checkedPin.SetActive(false);
+
+            GameObject namePin = UnityEngine.Object.Instantiate(Minimap.instance.m_pinNamePrefab.transform.Find(objectPinElementNameName).gameObject, pinElement);
+            namePin.name = objectPinElementNameName;
+            namePin.GetComponent<TMP_Text>().fontSizeMax = 24f;
+            namePin.SetActive(false);
 
             UpdateParentObject();
 
@@ -251,26 +279,51 @@ namespace Compass
             if (!modEnabled.Value || !Player.m_localPlayer || !compassObject)
                 return;
 
-            float angle = orientation.Value == OrientationType.Camera ? GameCamera.instance.transform.eulerAngles.y : Player.m_localPlayer.transform.eulerAngles.y;
+            float angle = AnchorTransform.eulerAngles.y;
 
             if (angle > 180)
                 angle -= 360;
 
             angle *= -Mathf.Deg2Rad;
 
-            compassObject.GetComponent<RectTransform>().localPosition = Vector3.right * (compassWidth / 2) * angle / (2f * Mathf.PI) - new Vector3(compassWidth * 0.125f, 0, 0);
+            compassTransform ??= compassObject.GetComponent<RectTransform>();
+            compassTransform.localPosition = Vector3.right * (compassWidth / 2) * angle / (2f * Mathf.PI) - new Vector3(compassWidth * 0.125f, 0, 0);
 
             UpdatePins();
+        }
+
+        public static void DestroyCompass()
+        {
+            parentObject = null;
+            compassObject = null;
+            centerObject = null;
+            pinsRootObject = null;
+            pinElement = null;
+            compassTransform = null;
+
+            maskComponent = null;
+            maskImage = null;
+
+            pinsList.Do(pin => pin.Destroy());
+            pinsList.Clear();
+
+            tempPins.Clear();
         }
 
         private static void UpdatePinList()
         {
             tempPins.Clear();
 
-            if (showOnlyLastDeath.Value)
-                AddPin(Minimap.instance.m_deathPin);
-
             AddPinRange(Minimap.instance.m_pins);
+
+            if (ShowAllPingPins())
+                AddPinRange(Minimap.instance.m_pingPins);
+
+            if (ShowAllShoutPins())
+                AddPinRange(Minimap.instance.m_shoutPins);
+
+            if (ShowAllPlayerPins())
+                AddPinRange(Minimap.instance.m_playerPins);
 
             tempPins.Sort((x, y) => ComparePins(x, y));
 
@@ -286,11 +339,21 @@ namespace Compass
                     return y.m_type.CompareTo(x.m_type);
                 }
 
-                return Utils.DistanceXZ(Player.m_localPlayer.transform.position, y.m_pos).CompareTo(Utils.DistanceXZ(Player.m_localPlayer.transform.position, x.m_pos));
+                return Utils.DistanceXZ(AnchorTransform.position, y.m_pos).CompareTo(Utils.DistanceXZ(AnchorTransform.position, x.m_pos));
             }
         }
 
-        private static void AddPinRange(IEnumerable<Minimap.PinData> pinList) => pinList.Do(AddPin);
+        public static bool IsShortcutDown(KeyboardShortcut shortcut) => shortcut.MainKey != KeyCode.None && ZInput.GetKey(shortcut.MainKey) && shortcut.Modifiers.All(key => ZInput.GetKey(key));
+
+        private static bool ShowAllPlayerPins() => alwaysShowPinText.Value || IsShortcutDown(holdToAlwaysShowPlayerPin.Value);
+
+        private static bool ShowAllShoutPins() => alwaysShowPinText.Value || IsShortcutDown(holdToAlwaysShowShouts.Value);
+
+        private static bool ShowAllPingPins() => alwaysShowPinText.Value || IsShortcutDown(holdToAlwaysShowPings.Value);
+
+        private static bool ShowPinText() => alwaysShowPinText.Value || IsShortcutDown(holdToShowText.Value);
+
+        private static void AddPinRange(List<Minimap.PinData> pinList) => pinList.Do(AddPin);
 
         private static void AddPin(Minimap.PinData pin)
         {
@@ -307,20 +370,24 @@ namespace Compass
             if (!showPins.Value.HasFlag(pinType))
                 return;
 
-            if (showOnlyLastDeath.Value && (pinType == CompassPinType.Death))
+            if (showOnlyLastDeath.Value && (pinType == CompassPinType.Death) && pin.m_pos != Game.instance.GetPlayerProfile().GetDeathPoint())
                 return;
 
-            float distance = Utils.DistanceXZ(Player.m_localPlayer.transform.position, pin.m_pos);
-            if (distance < pinsStyleConditions.Value.x || distance > pinsStyleConditions.Value.w)
-                return;
+            if (!IsDynamicPinToShow(pinType))
+            {
+                float distance = Utils.DistanceXZ(AnchorTransform.position, pin.m_pos);
+                if (distance < pinsStyleConditions.Value.x || distance > pinsStyleConditions.Value.w)
+                    return;
 
-            if (filteredNames.Contains(pin.m_name))
-                return;
+                if (filteredNames.Contains(pin.m_name))
+                    return;
 
-            if (filteredWildcards.Any(wildcard => new WildcardPattern(wildcard).IsMatch(pin.m_name)))
-                return;
+                if (filteredWildcards.Any(wildcard => new WildcardPattern(wildcard).IsMatch(pin.m_name)))
+                    return;
+            }
 
-            tempPins.Add(pin);
+            if (!tempPins.Contains(pin))
+                tempPins.Add(pin);
         }
 
         private static CompassPinType GetPinType(Minimap.PinType pinType)
@@ -350,7 +417,7 @@ namespace Compass
 
         public static void UpdatePins()
         {
-            if (!pinsRootObject|| !pinsRootObject.gameObject.activeInHierarchy)
+            if (!pinsRootObject|| !pinsRootObject.gameObject.activeInHierarchy || AnchorTransform == null)
                 return;
 
             UpdatePinList();
@@ -364,7 +431,8 @@ namespace Compass
                     new PinElement();
             }
 
-            float rectWidth = ImageFileInfo.GetImageInfo(fileNameCompass).sprite.rect.width;
+            Rect compassRect = ImageFileInfo.GetImageInfo(fileNameCompass).sprite.rect;
+            bool textIsShown = false;
 
             for (int i = 0; i < tempPins.Count; i++)
             {
@@ -377,23 +445,56 @@ namespace Compass
                 if (pinsColor.Value != Color.clear)
                     pinElement.image.color = pinsColor.Value;
 
-                Vector3 vector = orientation.Value == OrientationType.Camera ? GameCamera.instance.transform.InverseTransformPoint(pin.m_pos) : Player.m_localPlayer.transform.InverseTransformPoint(pin.m_pos);
-                float angle = Mathf.Atan2(vector.x, vector.z);
+                bool isDynamicPin = IsDynamicPinToShow(pin.m_type);
 
-                float distance = Utils.DistanceXZ(Player.m_localPlayer.transform.position, pin.m_pos);
+                float distance = Utils.DistanceXZ(AnchorTransform.position, pin.m_pos);
+                if (distance > pinsStyleConditions.Value.y && isDynamicPin)
+                    distance = pinsStyleConditions.Value.y;
 
                 float scale = Mathf.Lerp(pinsScale.Value.x, pinsScale.Value.y, (distance - pinsStyleConditions.Value.y) / (pinsStyleConditions.Value.z - pinsStyleConditions.Value.y));
                 float alpha = Mathf.Lerp(pinsAlpha.Value.x, pinsAlpha.Value.y, (distance - pinsStyleConditions.Value.z) / (pinsStyleConditions.Value.w - pinsStyleConditions.Value.z));
 
                 pinElement.rect.localScale = Vector3.one * scale;
-                pinElement.rect.localPosition = Vector3.right * (rectWidth / 2) * angle / (2f * Mathf.PI);
+                pinElement.rect.localPosition = Vector3.right * (compassRect.width / 2) * GetAngle(pin.m_pos) / (2f * Mathf.PI);
                 pinElement.image.color = new Color(pinElement.image.color.r, pinElement.image.color.g, pinElement.image.color.b, pin.m_animate ? pinsAlpha.Value.x : alpha);
                 pinElement.rect.SetSiblingIndex(i);
                 pinElement.checkedIcon?.SetActive(pin.m_checked);
+                if (pinElement.text != null)
+                {
+                    pinElement.text.gameObject.SetActive(!string.IsNullOrWhiteSpace(pin.m_name) && (isDynamicPin || ShowPinText()));
+                    if (pinElement.text.isActiveAndEnabled)
+                    {
+                        pinElement.text.SetText(GetPinText(pin));
+                        pinElement.text.transform.localScale = Vector3.one / scale;
+                        pinElement.text.transform.localPosition = new Vector3(0f, -compassRect.height / 2, 0f);
+                        textIsShown = true;
+                    }
+                }
 
-                if (pin.m_animate)
+                if (pin.m_animate && !isDynamicPin)
                     pinElement.rect.localScale *= 0.9f + Mathf.Sin(Time.time * 5f) * 0.2f;
             }
+
+            maskComponent.enabled = !textIsShown;
+            maskImage.enabled = !textIsShown;
+        }
+
+        public static bool IsDynamicPinToShow(CompassPinType pinType)
+        {
+            return pinType == CompassPinType.Shout && ShowAllShoutPins() || pinType == CompassPinType.Player && ShowAllPlayerPins() || pinType == CompassPinType.Ping && ShowAllPingPins();
+        }
+
+        public static bool IsDynamicPinToShow(Minimap.PinType pinType) => IsDynamicPinToShow(GetPinType(pinType));
+
+        public static float GetAngle(Vector3 position) => GetAtan2(AnchorTransform.InverseTransformPoint(new Vector3(position.x, AnchorTransform.position.y, position.z)));
+
+        public static float GetAtan2(Vector3 vector) => Mathf.Atan2(vector.x, vector.z);
+
+        public static string GetPinText(Minimap.PinData pin)
+        {
+            return string.IsNullOrEmpty(pin.m_author) || pin.m_author == PrivilegeManager.GetNetworkUserId()
+                ? Localization.instance.Localize(pin.m_name)
+                : CensorShittyWords.FilterUGC(Localization.instance.Localize(pin.m_name), UGCType.Text, pin.m_author, 0L);
         }
 
         [HarmonyPatch(typeof(GuiScaler), nameof(GuiScaler.UpdateScale))]
@@ -401,7 +502,7 @@ namespace Compass
         {
             public static void Postfix(GuiScaler __instance)
             {
-                if (__instance.name == "LoadingGUI")
+                if (__instance.name == "LoadingGUI") 
                     if (scaleFactor != (scaleFactor = __instance.m_canvasScaler.scaleFactor))
                         UpdateParentObject();
             }
@@ -417,6 +518,21 @@ namespace Compass
         public static class Hud_Update_Compass
         {
             public static void Postfix() => UpdateCompass();
+        }
+
+        [HarmonyPatch(typeof(Hud), nameof(Hud.OnDestroy))]
+        public static class Hud_OnDestroy_Compass
+        {
+            public static void Postfix() => DestroyCompass();
+        }
+
+        [HarmonyPatch(typeof(Player), nameof(Player.SetCrouch))]
+        public static class Player_SetCrouch_PreventCrouchingOnControlPress
+        {
+            private static bool IsCtrlDown(KeyboardShortcut shortcut) => (ZInput.GetButton("Crouch") || ZInput.GetButton("JoyCrouch")) && IsShortcutDown(shortcut);
+
+            [HarmonyPriority(Priority.First)]
+            public static bool Prefix() => !(IsCtrlDown(holdToAlwaysShowPings.Value) || IsCtrlDown(holdToAlwaysShowPlayerPin.Value) || IsCtrlDown(holdToAlwaysShowShouts.Value) || IsCtrlDown(holdToShowText.Value));
         }
     }
 }

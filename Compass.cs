@@ -15,7 +15,7 @@ namespace Compass
     {
         public const string pluginID = "shudnal.Compass";
         public const string pluginName = "Compass";
-        public const string pluginVersion = "1.0.1";
+        public const string pluginVersion = "1.0.2";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 
@@ -34,6 +34,11 @@ namespace Compass
         public static ConfigEntry<bool> showOnlyLastDeath;
         public static ConfigEntry<bool> hideChecked;
         public static ConfigEntry<bool> hideShared;
+        public static ConfigEntry<bool> alwaysShowPinText;
+        public static ConfigEntry<KeyboardShortcut> holdToAlwaysShowPings;
+        public static ConfigEntry<KeyboardShortcut> holdToAlwaysShowShouts;
+        public static ConfigEntry<KeyboardShortcut> holdToAlwaysShowPlayerPin;
+        public static ConfigEntry<KeyboardShortcut> holdToShowText;
 
         public static ConfigEntry<Vector2> pinsAlpha;
         public static ConfigEntry<Vector2> pinsScale;
@@ -106,7 +111,7 @@ namespace Compass
             showCenter.SettingChanged += (s, e) => CompassHUD.UpdateCenterObject();
 
             showPins = Config.Bind("Pins", "Show pins", defaultValue: CompassPinType.All, "Pin types to show on the compass. Use Configuration Manager for more convenient editing." +
-                "\nStatic - fixed locations like Haldor, Hildir, Sacrificial Stones" +
+                "\nStatic - fixed locations like Haldor, Hildir, Bog Witch, Sacrificial Stones" +
                 "\nCustom - Any custom pin type added by other mods" +
                 "\nEventArea - red circle around an event" +
                 "\nRandomEvent - red exclamation mark of an event");
@@ -115,6 +120,11 @@ namespace Compass
             showOnlyLastDeath = Config.Bind("Pins", "Show only last death", defaultValue: true, "Death pins except the last one will be hidden.");
             hideChecked = Config.Bind("Pins", "Hide checked pins", defaultValue: false, "Hide pins checked by red cross.");
             hideShared = Config.Bind("Pins", "Hide shared pins", defaultValue: false, "Hide pins shared via Cartography Table.");
+            holdToAlwaysShowShouts = Config.Bind("Pins", "Hold to show shouts at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show player shouts without distance filter.");
+            holdToAlwaysShowPlayerPin = Config.Bind("Pins", "Hold to show players at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show players with public positions without distance filter.");
+            holdToAlwaysShowPings = Config.Bind("Pins", "Hold to show pings at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show player pings without distance filter.");
+            holdToShowText = Config.Bind("Pins", "Hold to show pin text", defaultValue: new KeyboardShortcut(KeyCode.LeftControl, KeyCode.LeftAlt), "Hold to show pin text if it is set.");
+            alwaysShowPinText = Config.Bind("Pins", "Always show pin text", defaultValue: false, "Always show pin text if it is set.");
 
             showPins.SettingChanged += (s, e) => CompassHUD.UpdatePinsObject();
             pinNamesToIgnore.SettingChanged += (s, e) => UpdatePinFilterNames();
@@ -128,7 +138,7 @@ namespace Compass
             pinsColor = Config.Bind("Pin style", "Color", Color.clear, "Pins color. If not set - default is white");
             pinsAlpha = Config.Bind("Pin style", "Alpha", new Vector2(1f, 0.33f), "Pins alpha. X for max alpha, Y for min alpha");
             pinsScale = Config.Bind("Pin style", "Scale", new Vector2(1f, 0.33f), "Pins scale. X for max scale, Y for min scale");
-            pinsStyleConditions = Config.Bind("Pin style", "Style conditions", new Vector4(1f, 20f, 250f, 350f), "Conditions for alpha and scale application" +
+            pinsStyleConditions = Config.Bind("Pin style", "Style conditions", new Vector4(1f, 20f, 250f, 550f), "Conditions for alpha and scale application" +
                                                                                                                  "\nX - Minimum distance to show pins" +
                                                                                                                  "\nY - Distance where pins will start to become smaller. Size is at maximum. Alpha is at maximum." +
                                                                                                                  "\nZ - Distance where pins will start to become more transparent. Size is at minimum. Alpha is at maximum." +

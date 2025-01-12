@@ -11,6 +11,8 @@ Yet another Compass mod showing map pins in the middle top part of your screen.
 * red cross on checked pins
 * configurable pin type flags
 * every change of config or files update compass on the fly
+* an option to hold key to see shouts, player pins and pings at any distance
+* an option to hold key to see pin text (or see it at all time with other config)
 
 ## Pin style conditions config
 
@@ -60,3 +62,6 @@ extract Compass.dll into your BepInEx\Plugins\ folder
 The best way to handle configs is [Configuration Manager](https://thunderstore.io/c/valheim/p/shudnal/ConfigurationManager/).
 
 Or [Official BepInEx Configuration Manager](https://valheim.thunderstore.io/package/Azumatt/Official_BepInEx_ConfigurationManager/).
+
+## Donation
+[Buy Me a Coffee](https://buymeacoffee.com/shudnal)

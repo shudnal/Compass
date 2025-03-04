@@ -8,6 +8,7 @@ using System.Linq;
 using BepInEx.Configuration;
 using TMPro;
 using static Compass.Compass;
+using Splatform;
 
 namespace Compass
 {
@@ -43,7 +44,6 @@ namespace Compass
         public static Mask maskComponent;
         public static Image maskImage;
 
-        public static float scaleFactor = 1f;
         public static float compassWidth;
 
         public static readonly List<Minimap.PinData> tempPins = new List<Minimap.PinData>();
@@ -105,11 +105,13 @@ namespace Compass
 
             RectTransform rt = parentObject.GetComponent<RectTransform>();
 
-            rt.localScale = Vector3.one * scale.Value / scaleFactor;
+            rt.localScale = Vector3.one * scale.Value;
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
 
             Texture2D compass = ImageFileInfo.GetImageInfo(fileNameCompass).texture;
             if (compass)
-                rt.anchoredPosition = new Vector2(0f, (Screen.height / scaleFactor - compass.height * scale.Value / scaleFactor) / 2) - offset.Value;
+                rt.anchoredPosition = new Vector2(0f, -compass.height / 2) - offset.Value;
         }
 
         public static void UpdateCenterObject()
@@ -492,20 +494,9 @@ namespace Compass
 
         public static string GetPinText(Minimap.PinData pin)
         {
-            return string.IsNullOrEmpty(pin.m_author) || pin.m_author == PrivilegeManager.GetNetworkUserId()
+            return string.IsNullOrEmpty(pin.m_author.m_userID) || pin.m_author == PlatformManager.DistributionPlatform.LocalUser.PlatformUserID
                 ? Localization.instance.Localize(pin.m_name)
                 : CensorShittyWords.FilterUGC(Localization.instance.Localize(pin.m_name), UGCType.Text, pin.m_author, 0L);
-        }
-
-        [HarmonyPatch(typeof(GuiScaler), nameof(GuiScaler.UpdateScale))]
-        public static class GuiScaler_UpdateScale_GetCurrentScale
-        {
-            public static void Postfix(GuiScaler __instance)
-            {
-                if (__instance.name == "LoadingGUI") 
-                    if (scaleFactor != (scaleFactor = __instance.m_canvasScaler.scaleFactor))
-                        UpdateParentObject();
-            }
         }
 
         [HarmonyPatch(typeof(Hud), nameof(Hud.Awake))]

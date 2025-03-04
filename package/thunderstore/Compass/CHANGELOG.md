@@ -1,3 +1,8 @@
+# 1.0.3
+* patch 0.220.3
+* default texture wrap mode changed to clamp to avoid occasional last line pixel mirroring
+* compass scale now respects GUI scaling from game settings
+
 # 1.0.2
 * fixed last death pin wasn't showing
 * default maximum distance increased to 550

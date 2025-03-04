@@ -44,6 +44,8 @@ namespace Compass
             
             initialized = LoadTextureFromConfigDirectory(fileName, ref texture);
 
+            texture.wrapMode = TextureWrapMode.Clamp;
+
             InitSprite();
             
             UpdateGameObject();

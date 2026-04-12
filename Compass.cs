@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using TMPro;
 using UnityEngine;
 
 namespace Compass
@@ -15,7 +16,7 @@ namespace Compass
     {
         public const string pluginID = "shudnal.Compass";
         public const string pluginName = "Compass";
-        public const string pluginVersion = "1.0.3";
+        public const string pluginVersion = "1.0.5";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 
@@ -47,6 +48,9 @@ namespace Compass
         public static ConfigEntry<Color> compassColor;
         public static ConfigEntry<Color> centerColor;
         public static ConfigEntry<Color> pinsColor;
+        public static ConfigEntry<float> pinTextSize;
+        public static ConfigEntry<Color> pinTextColor;
+        public static ConfigEntry<TMPro.FontStyles> pinTextFormat;
 
         public static readonly string configDirectory = Path.Combine(Paths.ConfigPath, pluginID);
 
@@ -143,8 +147,15 @@ namespace Compass
                                                                                                                  "\nY - Distance where pins will start to become smaller. Size is at maximum. Alpha is at maximum." +
                                                                                                                  "\nZ - Distance where pins will start to become more transparent. Size is at minimum. Alpha is at maximum." +
                                                                                                                  "\nW - Maximum distance to show pins. Size is at minimum. Alpha is at minimum.");
-
             pinsStyleConditions.SettingChanged += (s, e) => UpdatePinsStyleConditions();
+            
+            pinTextSize = Config.Bind("Pin text style", "Size", 18f, "Pin text size");
+            pinTextColor = Config.Bind("Pin text style", "Color", Color.white, "Pin text color");
+            pinTextFormat = Config.Bind("Pin text style", "Format", FontStyles.Bold, "Pin text format");
+            
+            pinTextSize.SettingChanged += (s, e) => CompassHUD.UpdatePinTextStyle();
+            pinTextColor.SettingChanged += (s, e) => CompassHUD.UpdatePinTextStyle();
+            pinTextFormat.SettingChanged += (s, e) => CompassHUD.UpdatePinTextStyle();
         }
 
         private void OnDestroy()

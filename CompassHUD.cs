@@ -294,6 +294,20 @@ namespace Compass
             UpdatePins();
         }
 
+        public static void UpdatePinTextStyle()
+        {
+            pinsList.Do(pin =>
+            {
+                if (pin.text == null)
+                    return;
+
+                pin.text.enableAutoSizing = false;
+                pin.text.fontSize = pinTextSize.Value;
+                pin.text.color = pinTextColor.Value;
+                pin.text.fontStyle = pinTextFormat.Value;
+            });
+        }
+
         public static void DestroyCompass()
         {
             parentObject = null;
@@ -467,6 +481,10 @@ namespace Compass
                     if (pinElement.text.isActiveAndEnabled)
                     {
                         pinElement.text.SetText(GetPinText(pin));
+                        pinElement.text.enableAutoSizing = false;
+                        pinElement.text.fontSize = pinTextSize.Value;
+                        pinElement.text.color = pinTextColor.Value;
+                        pinElement.text.fontStyle = pinTextFormat.Value;
                         pinElement.text.transform.localScale = Vector3.one / scale;
                         pinElement.text.transform.localPosition = new Vector3(0f, -compassRect.height / 2, 0f);
                         textIsShown = true;

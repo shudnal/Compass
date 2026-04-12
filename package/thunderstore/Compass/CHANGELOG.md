@@ -1,3 +1,9 @@
+# 1.0.5
+* fixed incorrect default pin text style
+
+# 1.0.4
+* configurable pin text style
+
 # 1.0.3
 * patch 0.220.3
 * default texture wrap mode changed to clamp to avoid occasional last line pixel mirroring

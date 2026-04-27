@@ -15,7 +15,9 @@ namespace Compass
     internal static class CompassHUD
     {
         public const string fileNameCompass = "compass";
+        public const string fileNameCompassBottom = "compass_bottom";
         public const string fileNameCenter = "center";
+        public const string fileNameCenterBottom = "center_bottom";
         public const string fileNameMask = "mask";
         public const string fileNameOverlay = "overlay";
         public const string fileNameUnderlay = "underlay";
@@ -82,7 +84,9 @@ namespace Compass
             Directory.CreateDirectory(configDirectory);
 
             CheckFile(fileNameCompass);
+            CheckFile(fileNameCompassBottom);
             CheckFile(fileNameCenter);
+            CheckFile(fileNameCenterBottom);
             CheckFile(fileNameMask);
 
             static void CheckFile(string id)
@@ -106,12 +110,53 @@ namespace Compass
             RectTransform rt = parentObject.GetComponent<RectTransform>();
 
             rt.localScale = Vector3.one * scale.Value;
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
 
-            Texture2D compass = ImageFileInfo.GetImageInfo(fileNameCompass).texture;
+            Texture2D compass = GetActiveCompassImageInfo().texture;
             if (compass)
-                rt.anchoredPosition = new Vector2(0f, -compass.height / 2) - offset.Value;
+            {
+                if (anchorPosition.Value == AnchorPositionType.Bottom)
+                {
+                    rt.anchorMin = new Vector2(0.5f, 0f);
+                    rt.anchorMax = new Vector2(0.5f, 0f);
+                    rt.anchoredPosition = new Vector2(0f, compass.height / 2) + new Vector2(-offset.Value.x, offset.Value.y);
+                }
+                else
+                {
+                    rt.anchorMin = new Vector2(0.5f, 1f);
+                    rt.anchorMax = new Vector2(0.5f, 1f);
+                    rt.anchoredPosition = new Vector2(0f, -compass.height / 2) - offset.Value;
+                }
+            }
+        }
+
+        private static ImageFileInfo GetActiveCompassImageInfo()
+        {
+            ImageFileInfo defaultCompass = ImageFileInfo.GetImageInfo(fileNameCompass);
+            ImageFileInfo bottomCompass = ImageFileInfo.GetImageInfo(fileNameCompassBottom);
+            return anchorPosition.Value == AnchorPositionType.Bottom && bottomCompass.initialized ? bottomCompass : defaultCompass;
+        }
+
+        private static ImageFileInfo GetActiveCenterImageInfo()
+        {
+            ImageFileInfo defaultCenter = ImageFileInfo.GetImageInfo(fileNameCenter);
+            ImageFileInfo bottomCenter = ImageFileInfo.GetImageInfo(fileNameCenterBottom);
+            return anchorPosition.Value == AnchorPositionType.Bottom && bottomCenter.initialized ? bottomCenter : defaultCenter;
+        }
+
+        public static void UpdateAnchorImages()
+        {
+            if (!compassObject || !centerObject)
+                return;
+
+            bool isBottom = anchorPosition.Value == AnchorPositionType.Bottom;
+
+            ImageFileInfo compassDefault = ImageFileInfo.GetImageInfo(fileNameCompass).SetGameObject(isBottom ? null : compassObject);
+            ImageFileInfo compassBottom = ImageFileInfo.GetImageInfo(fileNameCompassBottom).SetGameObject(isBottom ? compassObject : null);
+            (isBottom && compassBottom.initialized ? compassBottom : compassDefault).UpdateGameObject();
+
+            ImageFileInfo centerDefault = ImageFileInfo.GetImageInfo(fileNameCenter).SetGameObject(isBottom ? null : centerObject);
+            ImageFileInfo centerBottom = ImageFileInfo.GetImageInfo(fileNameCenterBottom).SetGameObject(isBottom ? centerObject : null);
+            (isBottom && centerBottom.initialized ? centerBottom : centerDefault).UpdateGameObject();
         }
 
         public static void UpdateCenterObject()
@@ -125,7 +170,7 @@ namespace Compass
 
         public static void UpdateMaskObject()
         {
-            Texture2D compass = ImageFileInfo.GetImageInfo(fileNameCompass).texture;
+            Texture2D compass = GetActiveCompassImageInfo().texture;
             if (compass)
                 ImageFileInfo.GetImageInfo(fileNameMask).SetSpriteWidth(compass.width / 2).UpdateGameObject();
         }
@@ -147,7 +192,7 @@ namespace Compass
 
             pinsRootObject.gameObject.SetActive(showPins.Value != CompassPinType.None);
 
-            Texture2D compass = ImageFileInfo.GetImageInfo(fileNameCompass).texture;
+            Texture2D compass = GetActiveCompassImageInfo().texture;
             if (compass != null)
                 pinsRootObject.sizeDelta = new Vector2(compass.width / 2, compass.height);
 
@@ -160,14 +205,14 @@ namespace Compass
             pinsList.Clear();
             tempPins.Clear();
 
-            ImageFileInfo compass = ImageFileInfo.GetImageInfo(fileNameCompass);
+            ImageFileInfo compass = GetActiveCompassImageInfo();
             if (!compass.initialized)
             {
                 LogWarning($"Mandatory file {compass.fileName} is not found");
                 return;
             }
 
-            ImageFileInfo center = ImageFileInfo.GetImageInfo(fileNameCenter);
+            ImageFileInfo center = GetActiveCenterImageInfo();
             if (!center.initialized)
             {
                 LogWarning($"Mandatory file {center.fileName} is not found");
@@ -232,7 +277,8 @@ namespace Compass
             };
             compassObject.transform.SetParent(maskImageObject.transform, false);
             compass.SetGameObject(compassObject).UpdateGameObject();
-            compass.textureChanged = (Action)Delegate.Combine(new Action(UpdateParentObject), new Action(UpdateCompassObject), new Action(UpdateMaskObject));
+            ImageFileInfo.GetImageInfo(fileNameCompass).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateParentObject), new Action(UpdateCompassObject), new Action(UpdateMaskObject), new Action(UpdatePinsObject));
+            ImageFileInfo.GetImageInfo(fileNameCompassBottom).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateParentObject), new Action(UpdateCompassObject), new Action(UpdateMaskObject), new Action(UpdatePinsObject));
 
             // Center object
             centerObject = new GameObject(objectCenterName, typeof(RectTransform))
@@ -241,7 +287,9 @@ namespace Compass
             };
             centerObject.transform.SetParent(maskImageObject.transform, false);
             center.SetGameObject(centerObject).UpdateGameObject();
-
+            ImageFileInfo.GetImageInfo(fileNameCenter).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateCenterObject));
+            ImageFileInfo.GetImageInfo(fileNameCenterBottom).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateCenterObject));
+            
             // Pins root object
             pinsRootObject = new GameObject(objectPinsRootName, typeof(RectTransform))
             {
@@ -266,6 +314,8 @@ namespace Compass
             namePin.name = objectPinElementNameName;
             namePin.GetComponent<TMP_Text>().fontSizeMax = 24f;
             namePin.SetActive(false);
+
+            UpdateAnchorImages();
 
             UpdateParentObject();
 
@@ -447,8 +497,9 @@ namespace Compass
                     new PinElement();
             }
 
-            Rect compassRect = ImageFileInfo.GetImageInfo(fileNameCompass).sprite.rect;
+            Rect compassRect = GetActiveCompassImageInfo().sprite.rect;
             bool textIsShown = false;
+            float textOffset = anchorPosition.Value == AnchorPositionType.Bottom ? compassRect.height / 2 : -compassRect.height / 2;
 
             for (int i = 0; i < tempPins.Count; i++)
             {
@@ -486,7 +537,7 @@ namespace Compass
                         pinElement.text.color = pinTextColor.Value;
                         pinElement.text.fontStyle = pinTextFormat.Value;
                         pinElement.text.transform.localScale = Vector3.one / scale;
-                        pinElement.text.transform.localPosition = new Vector3(0f, -compassRect.height / 2, 0f);
+                        pinElement.text.transform.localPosition = new Vector3(0f, textOffset, 0f);
                         textIsShown = true;
                     }
                 }

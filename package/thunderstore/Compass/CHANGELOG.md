@@ -1,4 +1,9 @@
-# 1.0.5
+# 1.0.6
+* added compass anchor position config option (top/bottom) with offset relative to selected anchor
+* added `compass_bottom.png` and `center_bottom.png` files for bottom anchor mode
+* pin text now flips above pin icon when using bottom anchor mode
+
+* # 1.0.5
 * fixed incorrect default pin text style
 
 # 1.0.4

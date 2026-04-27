@@ -16,7 +16,7 @@ namespace Compass
     {
         public const string pluginID = "shudnal.Compass";
         public const string pluginName = "Compass";
-        public const string pluginVersion = "1.0.5";
+        public const string pluginVersion = "1.0.6";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 
@@ -26,6 +26,7 @@ namespace Compass
         public static ConfigEntry<bool> loggingEnabled;
 
         public static ConfigEntry<OrientationType> orientation;
+        public static ConfigEntry<AnchorPositionType> anchorPosition;
         public static ConfigEntry<float> scale;
         public static ConfigEntry<Vector2> offset;
         public static ConfigEntry<bool> showCenter;
@@ -58,6 +59,12 @@ namespace Compass
         {
             Camera,
             Player
+        }
+
+        public enum AnchorPositionType
+        {
+            Top,
+            Bottom
         }
 
         [Flags]
@@ -106,9 +113,20 @@ namespace Compass
             modEnabled.SettingChanged += (s, e) => CompassHUD.UpdateParentObject();
 
             orientation = Config.Bind("Compass", "Orientation based on", defaultValue: OrientationType.Camera, "Orientation type. Camera direction or player eyes direction could be used as a center of a compass.");
+            anchorPosition = Config.Bind("Compass", "Anchor position", defaultValue: AnchorPositionType.Top, "Defines whether compass is anchored to top or bottom side of the screen.");
             scale = Config.Bind("Compass", "Scale", defaultValue: 1f, "Scale of whole compass component");
-            offset = Config.Bind("Compass", "Position offset", defaultValue: Vector2.zero, "Offset from initial position in the middle top of the screen");
+            offset = Config.Bind("Compass", "Position offset", defaultValue: Vector2.zero, "Offset from selected anchor position. X moves compass left/right. Y moves compass down from top, up from bottom.");
             showCenter = Config.Bind("Compass", "Show center", defaultValue: true, "Show center marker");
+
+            anchorPosition.SettingChanged += (s, e) =>
+            {
+                CompassHUD.UpdateAnchorImages();
+                CompassHUD.UpdateParentObject();
+                CompassHUD.UpdateCompassObject();
+                CompassHUD.UpdateMaskObject();
+                CompassHUD.UpdateCenterObject();
+                CompassHUD.UpdatePinsObject();
+            };
 
             scale.SettingChanged += (s, e) => CompassHUD.UpdateParentObject();
             offset.SettingChanged += (s, e) => CompassHUD.UpdateParentObject();

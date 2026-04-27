@@ -13,6 +13,7 @@ Yet another Compass mod showing map pins in the middle top part of your screen.
 * every change of config or files update compass on the fly
 * an option to hold key to see shouts, player pins and pings at any distance
 * an option to hold key to see pin text (or see it at all time with other config)
+* anchor position option to place compass relative to top or bottom side of the screen
 
 ## Pin style conditions config
 
@@ -48,7 +49,9 @@ On every launch if any of files `compass.png, center.png, mask.png` is missed it
 
 File names to load from config directory:
 * compass.png
+* compass_bottom.png (optional, used when Anchor position = Bottom)
 * center.png
+* center_bottom.png (optional, used when Anchor position = Bottom)
 * mask.png
 * overlay.png
 * underlay.png

@@ -11,6 +11,10 @@ Yet another Compass mod showing map pins in the middle top part of your screen.
 * red cross on checked pins
 * configurable pin type flags
 * every change of config or files update compass on the fly
+* an option to hold key to see shouts, player pins and pings at any distance
+* an option to hold key to see pin text (or see it at all time with other config)
+* anchor position option to place compass relative to top or bottom side of the screen
+* detailed mode with a separate customizable image set
 
 ## Pin style conditions config
 
@@ -22,7 +26,7 @@ Config value for this condition consists of 4 variables in form of Vector4.
 
 It allows you to define how scale and alpha of pin will be set with different distances.
 
-Default value is (1, 20, 250, 350).
+Default value is (1, 20, 250, 550).
 
 * X - Minimum distance to show pins.
 * Y - Distance where pins will start to become smaller. Size is at maximum. Alpha is at maximum.
@@ -31,8 +35,8 @@ Default value is (1, 20, 250, 350).
 
 It means if pin is between 1(X) and 20(Y) distance it will have maximum configurable size and alpha (transparency).
 If pin is between 20(Y) and 250(Z) distance its size will be gradually lowered with distance and its alpha will be maximum.
-If pin is between 250(Z) and 350(W) distance its size will be as it set in minimum scale value and now it's alpha will be decreased with distance.
-If pin is at 350(W) distance its size will be minimum and so as its alpha.
+If pin is between 250(Z) and 550(W) distance its size will be at the configured minimum scale and its alpha will decrease with distance.
+If pin is at 550(W) distance, both its size and alpha will be at their configured minimum values.
 
 So basically first and last variables is pin visility filter.
 
@@ -42,21 +46,34 @@ On the launch mod will create `...\BepInEx\config\shudnal.Compass` folder.
 
 Original files will be put at config directory after first launch of the game.
 
-On every launch if any of files `compass.png, center.png, mask.png` is missed it will be put there as this files are mandatory.
+On every launch, missing bundled normal or detailed image files are restored to this directory.
 
 File names to load from config directory:
 * compass.png
+* compass_bottom.png (used when Anchor position = Bottom)
 * center.png
+* center_bottom.png (used when Anchor position = Bottom)
 * mask.png
+* compass_detailed.png
+* compass_detailed_bottom.png
+* center_detailed.png
+* center_detailed_bottom.png
+* mask_detailed.png
 * overlay.png
 * underlay.png
 
-Files will be loaded on the fly after change.
+Both image sets are loaded at startup. Changes to any listed PNG are applied on the fly, and switching Detailed mode immediately selects the corresponding compass, center, and mask images.
 
 ## Installation (manual)
-extract Compass.dll into your BepInEx\Plugins\ folder
+Install Conditional Config Sync, then extract Compass.dll into your BepInEx\Plugins\ folder.
 
 ## Configurating
 The best way to handle configs is [Configuration Manager](https://thunderstore.io/c/valheim/p/shudnal/ConfigurationManager/).
 
 Or [Official BepInEx Configuration Manager](https://valheim.thunderstore.io/package/Azumatt/Official_BepInEx_ConfigurationManager/).
+
+## Donation
+[Buy Me a Coffee](https://buymeacoffee.com/shudnal)
+
+## Discord
+[Join server](https://discord.gg/e3UtQB8GFK)

@@ -16,9 +16,14 @@ namespace Compass
     {
         public const string fileNameCompass = "compass";
         public const string fileNameCompassBottom = "compass_bottom";
+        public const string fileNameCompassDetailed = "compass_detailed";
+        public const string fileNameCompassDetailedBottom = "compass_detailed_bottom";
         public const string fileNameCenter = "center";
         public const string fileNameCenterBottom = "center_bottom";
+        public const string fileNameCenterDetailed = "center_detailed";
+        public const string fileNameCenterDetailedBottom = "center_detailed_bottom";
         public const string fileNameMask = "mask";
+        public const string fileNameMaskDetailed = "mask_detailed";
         public const string fileNameOverlay = "overlay";
         public const string fileNameUnderlay = "underlay";
 
@@ -33,12 +38,12 @@ namespace Compass
         private const string objectPinElementName = "PinElement";
         private const string objectPinElementCheckedName = "Checked";
         private const string objectPinElementNameName = "Name";
-
         private static readonly int layerUI = LayerMask.NameToLayer("UI");
 
         public static GameObject parentObject;
         public static GameObject compassObject;
         public static GameObject centerObject;
+        public static GameObject maskObject;
         public static RectTransform pinsRootObject;
         public static RectTransform pinElement;
         public static RectTransform compassTransform;
@@ -51,8 +56,9 @@ namespace Compass
         public static readonly List<Minimap.PinData> tempPins = new List<Minimap.PinData>();
         public static readonly List<PinElement> pinsList = new List<PinElement>();
 
-        public static HashSet<string> filteredNames = new HashSet<string>();
-        public static HashSet<string> filteredWildcards = new HashSet<string>();
+        public static HashSet<string> filteredNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        public static readonly List<WildcardPattern> filteredWildcardPatterns = new List<WildcardPattern>();
+        public static Vector4 effectivePinsStyleConditions = new Vector4(1f, 20f, 250f, 550f);
 
         private static Transform AnchorTransform => orientation.Value == OrientationType.Camera ? GameCamera.instance?.transform : Player.m_localPlayer?.transform;
 
@@ -68,7 +74,7 @@ namespace Compass
             {
                 rect = UnityEngine.Object.Instantiate(pinElement, pinsRootObject);
                 rect.gameObject.SetActive(value: true);
-                
+
                 image = rect.GetComponent<Image>();
                 checkedIcon = rect.Find(objectPinElementCheckedName)?.gameObject;
                 text = rect.Find(objectPinElementNameName)?.GetComponent<TMP_Text>();
@@ -83,19 +89,30 @@ namespace Compass
         {
             Directory.CreateDirectory(configDirectory);
 
-            CheckFile(fileNameCompass);
-            CheckFile(fileNameCompassBottom);
-            CheckFile(fileNameCenter);
-            CheckFile(fileNameCenterBottom);
-            CheckFile(fileNameMask);
+            string[] embeddedImageIds =
+            {
+                fileNameCompass,
+                fileNameCompassBottom,
+                fileNameCompassDetailed,
+                fileNameCompassDetailedBottom,
+                fileNameCenter,
+                fileNameCenterBottom,
+                fileNameCenterDetailed,
+                fileNameCenterDetailedBottom,
+                fileNameMask,
+                fileNameMaskDetailed
+            };
+
+            foreach (string id in embeddedImageIds)
+                CheckFile(id);
 
             static void CheckFile(string id)
             {
-                ImageFileInfo fileinfo = ImageFileInfo.GetImageInfo(id);
-                if (!fileinfo.initialized)
+                ImageFileInfo fileInfo = ImageFileInfo.GetImageInfo(id);
+                if (!fileInfo.initialized)
                 {
-                    File.WriteAllBytes(fileinfo.filePath, GetEmbeddedFileData(fileinfo.fileName));
-                    fileinfo.Load();
+                    File.WriteAllBytes(fileInfo.filePath, GetEmbeddedFileData(fileInfo.fileName));
+                    fileInfo.Load();
                 }
             }
         }
@@ -111,8 +128,9 @@ namespace Compass
 
             rt.localScale = Vector3.one * scale.Value;
 
-            Texture2D compass = GetActiveCompassImageInfo().texture;
-            if (compass)
+            ImageFileInfo activeCompass = GetActiveCompassImageInfo();
+            Texture2D compass = activeCompass.texture;
+            if (activeCompass.initialized && compass)
             {
                 if (anchorPosition.Value == AnchorPositionType.Bottom)
                 {
@@ -129,18 +147,54 @@ namespace Compass
             }
         }
 
-        private static ImageFileInfo GetActiveCompassImageInfo()
+        private static ImageFileInfo GetActiveCompassImageInfo() => GetActiveImageInfo(
+            fileNameCompass,
+            fileNameCompassBottom,
+            fileNameCompassDetailed,
+            fileNameCompassDetailedBottom);
+
+        private static ImageFileInfo GetActiveCenterImageInfo() => GetActiveImageInfo(
+            fileNameCenter,
+            fileNameCenterBottom,
+            fileNameCenterDetailed,
+            fileNameCenterDetailedBottom);
+
+        private static ImageFileInfo GetActiveMaskImageInfo()
         {
-            ImageFileInfo defaultCompass = ImageFileInfo.GetImageInfo(fileNameCompass);
-            ImageFileInfo bottomCompass = ImageFileInfo.GetImageInfo(fileNameCompassBottom);
-            return anchorPosition.Value == AnchorPositionType.Bottom && bottomCompass.initialized ? bottomCompass : defaultCompass;
+            ImageFileInfo detailedMask = ImageFileInfo.GetImageInfo(fileNameMaskDetailed);
+            if (detailedMode.Value && detailedMask.initialized)
+                return detailedMask;
+
+            return ImageFileInfo.GetImageInfo(fileNameMask);
         }
 
-        private static ImageFileInfo GetActiveCenterImageInfo()
+        private static ImageFileInfo GetActiveImageInfo(string defaultId, string bottomId, string detailedId, string detailedBottomId)
         {
-            ImageFileInfo defaultCenter = ImageFileInfo.GetImageInfo(fileNameCenter);
-            ImageFileInfo bottomCenter = ImageFileInfo.GetImageInfo(fileNameCenterBottom);
-            return anchorPosition.Value == AnchorPositionType.Bottom && bottomCenter.initialized ? bottomCenter : defaultCenter;
+            bool isBottom = anchorPosition.Value == AnchorPositionType.Bottom;
+            string[] candidates = detailedMode.Value
+                ? isBottom
+                    ? new[] { detailedBottomId, bottomId, detailedId, defaultId }
+                    : new[] { detailedId, defaultId }
+                : isBottom
+                    ? new[] { bottomId, defaultId }
+                    : new[] { defaultId };
+
+            foreach (string id in candidates)
+            {
+                ImageFileInfo imageInfo = ImageFileInfo.GetImageInfo(id);
+                if (imageInfo.initialized)
+                    return imageInfo;
+            }
+
+            return ImageFileInfo.GetImageInfo(defaultId);
+        }
+
+        private static void BindActiveImage(GameObject target, ImageFileInfo activeImage, params string[] imageIds)
+        {
+            foreach (string id in imageIds)
+                ImageFileInfo.GetImageInfo(id).SetGameObject(null);
+
+            activeImage.SetGameObject(target).UpdateGameObject();
         }
 
         public static void UpdateAnchorImages()
@@ -148,15 +202,31 @@ namespace Compass
             if (!compassObject || !centerObject)
                 return;
 
-            bool isBottom = anchorPosition.Value == AnchorPositionType.Bottom;
+            BindActiveImage(
+                compassObject,
+                GetActiveCompassImageInfo(),
+                fileNameCompass,
+                fileNameCompassBottom,
+                fileNameCompassDetailed,
+                fileNameCompassDetailedBottom);
 
-            ImageFileInfo compassDefault = ImageFileInfo.GetImageInfo(fileNameCompass).SetGameObject(isBottom ? null : compassObject);
-            ImageFileInfo compassBottom = ImageFileInfo.GetImageInfo(fileNameCompassBottom).SetGameObject(isBottom ? compassObject : null);
-            (isBottom && compassBottom.initialized ? compassBottom : compassDefault).UpdateGameObject();
+            BindActiveImage(
+                centerObject,
+                GetActiveCenterImageInfo(),
+                fileNameCenter,
+                fileNameCenterBottom,
+                fileNameCenterDetailed,
+                fileNameCenterDetailedBottom);
+        }
 
-            ImageFileInfo centerDefault = ImageFileInfo.GetImageInfo(fileNameCenter).SetGameObject(isBottom ? null : centerObject);
-            ImageFileInfo centerBottom = ImageFileInfo.GetImageInfo(fileNameCenterBottom).SetGameObject(isBottom ? centerObject : null);
-            (isBottom && centerBottom.initialized ? centerBottom : centerDefault).UpdateGameObject();
+        public static void UpdateImageMode()
+        {
+            UpdateAnchorImages();
+            UpdateMaskObject();
+            UpdateParentObject();
+            UpdateCompassObject();
+            UpdateCenterObject();
+            UpdatePinsObject();
         }
 
         public static void UpdateCenterObject()
@@ -170,17 +240,31 @@ namespace Compass
 
         public static void UpdateMaskObject()
         {
-            Texture2D compass = GetActiveCompassImageInfo().texture;
-            if (compass)
-                ImageFileInfo.GetImageInfo(fileNameMask).SetSpriteWidth(compass.width / 2).UpdateGameObject();
+            if (!maskObject)
+                return;
+
+            ImageFileInfo activeCompass = GetActiveCompassImageInfo();
+            ImageFileInfo activeMask = GetActiveMaskImageInfo();
+
+            ImageFileInfo.GetImageInfo(fileNameMask).SetGameObject(null);
+            ImageFileInfo.GetImageInfo(fileNameMaskDetailed).SetGameObject(null);
+
+            if (activeCompass.initialized && activeCompass.texture && activeMask.initialized)
+                activeMask.SetSpriteWidth(activeCompass.texture.width / 2).SetGameObject(maskObject).UpdateGameObject();
         }
 
         public static void UpdateCompassObject()
         {
-            if (!compassObject) 
+            if (!compassObject)
                 return;
 
             Image image = compassObject.GetComponent<Image>();
+            if (!image || !image.sprite)
+            {
+                compassWidth = 0f;
+                return;
+            }
+
             image.color = compassColor.Value;
             compassWidth = image.sprite.rect.width;
         }
@@ -192,9 +276,9 @@ namespace Compass
 
             pinsRootObject.gameObject.SetActive(showPins.Value != CompassPinType.None);
 
-            Texture2D compass = GetActiveCompassImageInfo().texture;
-            if (compass != null)
-                pinsRootObject.sizeDelta = new Vector2(compass.width / 2, compass.height);
+            ImageFileInfo activeCompass = GetActiveCompassImageInfo();
+            if (activeCompass.initialized && activeCompass.texture)
+                pinsRootObject.sizeDelta = new Vector2(activeCompass.texture.width / 2, activeCompass.texture.height);
 
             pinElement?.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, pinsRootObject.sizeDelta.y);
             pinElement?.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, pinsRootObject.sizeDelta.y);
@@ -219,7 +303,7 @@ namespace Compass
                 return;
             }
 
-            ImageFileInfo mask = ImageFileInfo.GetImageInfo(fileNameMask);
+            ImageFileInfo mask = GetActiveMaskImageInfo();
             if (!mask.initialized)
             {
                 LogWarning($"Mandatory file {mask.fileName} is not found");
@@ -259,43 +343,58 @@ namespace Compass
             mask2DObject.GetComponent<RectTransform>().sizeDelta = new Vector2(1600f, 100f);
 
             // Mask object
-            GameObject maskImageObject = new GameObject(objectMaskName, typeof(RectTransform))
+            maskObject = new GameObject(objectMaskName, typeof(RectTransform))
             {
                 layer = layerUI
             };
-            maskImageObject.transform.SetParent(mask2DObject.transform, false);
-            mask.SetGameObject(maskImageObject);
+            maskObject.transform.SetParent(mask2DObject.transform, false);
             UpdateMaskObject();
-            maskComponent = maskImageObject.AddComponent<Mask>();
+            maskComponent = maskObject.AddComponent<Mask>();
             maskComponent.showMaskGraphic = false;
-            maskImage = maskImageObject.GetComponent<Image>();
+            maskImage = maskObject.GetComponent<Image>();
 
             // Compass object
             compassObject = new GameObject(objectCompassName, typeof(RectTransform))
             {
                 layer = layerUI
             };
-            compassObject.transform.SetParent(maskImageObject.transform, false);
+            compassObject.transform.SetParent(maskObject.transform, false);
             compass.SetGameObject(compassObject).UpdateGameObject();
-            ImageFileInfo.GetImageInfo(fileNameCompass).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateParentObject), new Action(UpdateCompassObject), new Action(UpdateMaskObject), new Action(UpdatePinsObject));
-            ImageFileInfo.GetImageInfo(fileNameCompassBottom).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateParentObject), new Action(UpdateCompassObject), new Action(UpdateMaskObject), new Action(UpdatePinsObject));
+            Action compassTextureChanged = UpdateImageMode;
+            ImageFileInfo.GetImageInfo(fileNameCompass).textureChanged = compassTextureChanged;
+            ImageFileInfo.GetImageInfo(fileNameCompassBottom).textureChanged = compassTextureChanged;
+            ImageFileInfo.GetImageInfo(fileNameCompassDetailed).textureChanged = compassTextureChanged;
+            ImageFileInfo.GetImageInfo(fileNameCompassDetailedBottom).textureChanged = compassTextureChanged;
 
             // Center object
             centerObject = new GameObject(objectCenterName, typeof(RectTransform))
             {
                 layer = layerUI
             };
-            centerObject.transform.SetParent(maskImageObject.transform, false);
+            // Keep the static center overlay outside the alpha mask used by the scrolling compass and pins.
+            // It remains clipped by the global RectMask2D, including custom full-width center textures.
+            centerObject.transform.SetParent(mask2DObject.transform, false);
             center.SetGameObject(centerObject).UpdateGameObject();
-            ImageFileInfo.GetImageInfo(fileNameCenter).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateCenterObject));
-            ImageFileInfo.GetImageInfo(fileNameCenterBottom).textureChanged = (Action)Delegate.Combine(new Action(UpdateAnchorImages), new Action(UpdateCenterObject));
-            
+            Action centerTextureChanged = () =>
+            {
+                UpdateAnchorImages();
+                UpdateCenterObject();
+            };
+            ImageFileInfo.GetImageInfo(fileNameCenter).textureChanged = centerTextureChanged;
+            ImageFileInfo.GetImageInfo(fileNameCenterBottom).textureChanged = centerTextureChanged;
+            ImageFileInfo.GetImageInfo(fileNameCenterDetailed).textureChanged = centerTextureChanged;
+            ImageFileInfo.GetImageInfo(fileNameCenterDetailedBottom).textureChanged = centerTextureChanged;
+
+            Action maskTextureChanged = UpdateMaskObject;
+            ImageFileInfo.GetImageInfo(fileNameMask).textureChanged = maskTextureChanged;
+            ImageFileInfo.GetImageInfo(fileNameMaskDetailed).textureChanged = maskTextureChanged;
+
             // Pins root object
             pinsRootObject = new GameObject(objectPinsRootName, typeof(RectTransform))
             {
                 layer = layerUI
             }.GetComponent<RectTransform>();
-            pinsRootObject.SetParent(maskImageObject.transform, false);
+            pinsRootObject.SetParent(maskObject.transform, false);
 
             // Pin element
             pinElement = new GameObject(objectPinElementName, typeof(RectTransform))
@@ -314,6 +413,8 @@ namespace Compass
             namePin.name = objectPinElementNameName;
             namePin.GetComponent<TMP_Text>().fontSizeMax = 24f;
             namePin.SetActive(false);
+
+            overlayObject.transform.SetAsLastSibling();
 
             UpdateAnchorImages();
 
@@ -363,6 +464,7 @@ namespace Compass
             parentObject = null;
             compassObject = null;
             centerObject = null;
+            maskObject = null;
             pinsRootObject = null;
             pinElement = null;
             compassTransform = null;
@@ -442,13 +544,13 @@ namespace Compass
             if (!IsDynamicPinToShow(pinType))
             {
                 float distance = Utils.DistanceXZ(AnchorTransform.position, pin.m_pos);
-                if (distance < pinsStyleConditions.Value.x || distance > pinsStyleConditions.Value.w)
+                if (distance < effectivePinsStyleConditions.x || distance > effectivePinsStyleConditions.w)
                     return;
 
                 if (filteredNames.Contains(pin.m_name))
                     return;
 
-                if (filteredWildcards.Any(wildcard => new WildcardPattern(wildcard).IsMatch(pin.m_name)))
+                if (filteredWildcardPatterns.Any(pattern => pattern.IsMatch(pin.m_name)))
                     return;
             }
 
@@ -497,9 +599,16 @@ namespace Compass
                     new PinElement();
             }
 
-            Rect compassRect = GetActiveCompassImageInfo().sprite.rect;
+            Sprite activeCompassSprite = GetActiveCompassImageInfo().sprite;
+            if (!activeCompassSprite)
+                return;
+
+            Rect compassRect = activeCompassSprite.rect;
             bool textIsShown = false;
-            float textOffset = anchorPosition.Value == AnchorPositionType.Bottom ? compassRect.height / 2 : -compassRect.height / 2;
+            bool isBottomAnchor = anchorPosition.Value == AnchorPositionType.Bottom;
+            Vector3 configuredPinOffset = new Vector3(pinOffset.Value.x, -pinOffset.Value.y);
+            Vector3 configuredNameOffset = new Vector3(pinNameOffset.Value.x, -pinNameOffset.Value.y);
+            Color configuredPinColor = pinsColor.Value == Color.clear ? Color.white : pinsColor.Value;
 
             for (int i = 0; i < tempPins.Count; i++)
             {
@@ -509,37 +618,47 @@ namespace Compass
                 pinElement.name = pin.m_name;
                 pinElement.image.sprite = pin.m_icon;
 
-                if (pinsColor.Value != Color.clear)
-                    pinElement.image.color = pinsColor.Value;
-
                 bool isDynamicPin = IsDynamicPinToShow(pin.m_type);
 
                 float distance = Utils.DistanceXZ(AnchorTransform.position, pin.m_pos);
-                if (distance > pinsStyleConditions.Value.y && isDynamicPin)
-                    distance = pinsStyleConditions.Value.y;
+                if (distance > effectivePinsStyleConditions.y && isDynamicPin)
+                    distance = effectivePinsStyleConditions.y;
 
-                float scale = Mathf.Lerp(pinsScale.Value.x, pinsScale.Value.y, (distance - pinsStyleConditions.Value.y) / (pinsStyleConditions.Value.z - pinsStyleConditions.Value.y));
-                float alpha = Mathf.Lerp(pinsAlpha.Value.x, pinsAlpha.Value.y, (distance - pinsStyleConditions.Value.z) / (pinsStyleConditions.Value.w - pinsStyleConditions.Value.z));
+                float scale = Mathf.Lerp(pinsScale.Value.x, pinsScale.Value.y, (distance - effectivePinsStyleConditions.y) / (effectivePinsStyleConditions.z - effectivePinsStyleConditions.y));
+                float alpha = Mathf.Lerp(pinsAlpha.Value.x, pinsAlpha.Value.y, (distance - effectivePinsStyleConditions.z) / (effectivePinsStyleConditions.w - effectivePinsStyleConditions.z));
+                float textDistanceScale = pinNameScaleDistant.Value ? Mathf.Lerp(1f, 0.8f, Mathf.InverseLerp(effectivePinsStyleConditions.z, effectivePinsStyleConditions.w, distance)) : 1f;
 
                 pinElement.rect.localScale = Vector3.one * scale;
-                pinElement.rect.localPosition = Vector3.right * (compassRect.width / 2) * GetAngle(pin.m_pos) / (2f * Mathf.PI);
-                pinElement.image.color = new Color(pinElement.image.color.r, pinElement.image.color.g, pinElement.image.color.b, pin.m_animate ? pinsAlpha.Value.x : alpha);
+                pinElement.rect.localPosition = Vector3.right * (compassRect.width / 2) * GetAngle(pin.m_pos) / (2f * Mathf.PI) + configuredPinOffset;
+                pinElement.image.color = new Color(configuredPinColor.r, configuredPinColor.g, configuredPinColor.b, pin.m_animate ? pinsAlpha.Value.x : alpha);
                 pinElement.rect.SetSiblingIndex(i);
                 pinElement.checkedIcon?.SetActive(pin.m_checked);
-                if (pinElement.text != null)
+
+                bool showText = pinElement.text != null && !string.IsNullOrWhiteSpace(pin.m_name) && (isDynamicPin || ShowPinText());
+                pinElement.text?.gameObject.SetActive(showText);
+
+                if (showText)
                 {
-                    pinElement.text.gameObject.SetActive(!string.IsNullOrWhiteSpace(pin.m_name) && (isDynamicPin || ShowPinText()));
-                    if (pinElement.text.isActiveAndEnabled)
-                    {
-                        pinElement.text.SetText(GetPinText(pin));
-                        pinElement.text.enableAutoSizing = false;
-                        pinElement.text.fontSize = pinTextSize.Value;
-                        pinElement.text.color = pinTextColor.Value;
-                        pinElement.text.fontStyle = pinTextFormat.Value;
-                        pinElement.text.transform.localScale = Vector3.one / scale;
-                        pinElement.text.transform.localPosition = new Vector3(0f, textOffset, 0f);
-                        textIsShown = true;
-                    }
+                    pinElement.text.SetText(GetPinText(pin));
+                    pinElement.text.enableAutoSizing = false;
+                    pinElement.text.fontSize = pinTextSize.Value;
+                    pinElement.text.color = pinTextColor.Value;
+                    pinElement.text.fontStyle = pinTextFormat.Value;
+                    pinElement.text.verticalAlignment = isBottomAnchor ? VerticalAlignmentOptions.Bottom : VerticalAlignmentOptions.Top;
+
+                    RectTransform textRect = pinElement.text.rectTransform;
+
+                    textRect.anchorMin = new Vector2(0.5f, 0.5f);
+                    textRect.anchorMax = new Vector2(0.5f, 0.5f);
+                    textRect.pivot = new Vector2(0.5f, isBottomAnchor ? 0f : 1f);
+                    textRect.localScale = Vector3.one * (textDistanceScale / scale);
+
+                    float iconHalfHeight = pinElement.rect.sizeDelta.y / 2f;
+                    float verticalDirection = isBottomAnchor ? 1f : -1f;
+
+                    textRect.anchoredPosition = new Vector2(configuredNameOffset.x / scale, verticalDirection * iconHalfHeight + configuredNameOffset.y / scale);
+
+                    textIsShown = true;
                 }
 
                 if (pin.m_animate && !isDynamicPin)

@@ -13,7 +13,7 @@ public class WildcardPattern
         _expression = "^" + Regex.Escape(pattern)
             .Replace("\\\\\\?", "??").Replace("\\?", ".").Replace("??", "\\?")
             .Replace("\\\\\\*", "**").Replace("\\*", ".*").Replace("**", "\\*") + "$";
-        _regex = new Regex(_expression, RegexOptions.Compiled);
+        _regex = new Regex(_expression, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     public bool IsMatch(string value)

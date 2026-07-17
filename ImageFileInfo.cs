@@ -9,7 +9,7 @@ namespace Compass
 {
     public class ImageFileInfo
     {
-        public static readonly Dictionary<string, ImageFileInfo> images = new Dictionary<string, ImageFileInfo>();
+        public static readonly Dictionary<string, ImageFileInfo> images = new Dictionary<string, ImageFileInfo>(StringComparer.OrdinalIgnoreCase);
 
         public const string ext = "png";
         public static string filter = GetFilename("*");
@@ -19,7 +19,7 @@ namespace Compass
         public string filePath;
         public Texture2D texture;
         public bool initialized = false;
-        
+
         public GameObject gameObject;
         public Sprite sprite;
         public int spriteWidthOverride;
@@ -36,27 +36,41 @@ namespace Compass
             images[fileID] = this;
         }
 
-        public void Load()
+        public bool Load()
         {
-            Clear();
+            Texture2D loadedTexture = new Texture2D(2, 2, TextureFormat.RGBA32, true, true);
+            if (!LoadTextureFromConfigDirectory(fileName, ref loadedTexture))
+            {
+                UnityEngine.Object.Destroy(loadedTexture);
+                return false;
+            }
 
-            texture = new Texture2D(2, 2, TextureFormat.RGBA32, true, true);
-            
-            initialized = LoadTextureFromConfigDirectory(fileName, ref texture);
+            loadedTexture.wrapMode = TextureWrapMode.Clamp;
 
-            texture.wrapMode = TextureWrapMode.Clamp;
+            Texture2D previousTexture = texture;
+            texture = loadedTexture;
+            initialized = true;
 
             InitSprite();
-            
             UpdateGameObject();
-
             Update();
-
             textureChanged?.Invoke();
+
+            if (previousTexture != null)
+                UnityEngine.Object.Destroy(previousTexture);
+
+            return true;
         }
 
         public void Clear()
         {
+            if (gameObject)
+            {
+                Image image = gameObject.GetComponent<Image>();
+                if (image && image.sprite == sprite)
+                    image.sprite = null;
+            }
+
             if (texture != null)
             {
                 UnityEngine.Object.Destroy(texture);
@@ -121,14 +135,16 @@ namespace Compass
 
         public static void TryClearFile(string filename)
         {
-            if (images.TryGetValue(Path.GetFileNameWithoutExtension(filename), out ImageFileInfo imageInfo))
-                imageInfo.Clear();
+            if (!images.TryGetValue(Path.GetFileNameWithoutExtension(filename), out ImageFileInfo imageInfo))
+                return;
+
+            imageInfo.Clear();
+            imageInfo.textureChanged?.Invoke();
         }
 
-        public static void TryLoadFile(string filename)
+        public static bool TryLoadFile(string filename)
         {
-            if (images.TryGetValue(Path.GetFileNameWithoutExtension(filename), out ImageFileInfo imageInfo))
-                imageInfo.Load();
+            return images.TryGetValue(Path.GetFileNameWithoutExtension(filename), out ImageFileInfo imageInfo) && imageInfo.Load();
         }
     }
 }

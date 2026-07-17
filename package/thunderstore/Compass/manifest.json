@@ -1,7 +1,10 @@
 {
     "name": "Compass",
-    "version_number": "1.0.6",
+    "version_number": "1.0.7",
     "website_url": "https://github.com/shudnal/Compass",
     "description": "Yet another Compass. Performant and configurable. See players, pings and shouts at any distance. Pins with text. Compatible with aedenthorn's png files.",
-    "dependencies": [ "denikson-BepInExPack_Valheim-5.4.2333" ]
+    "dependencies": [
+        "denikson-BepInExPack_Valheim-5.4.2333",
+        "shudnal-ConditionalConfigSync-1.0.2"
+    ]
 }

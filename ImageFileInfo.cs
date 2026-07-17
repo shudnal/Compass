@@ -38,8 +38,31 @@ namespace Compass
 
         public bool Load()
         {
+            if (!TryReadFileData(out byte[] imageData))
+                return false;
+
+            bool loaded = Load(imageData);
+            if (loaded)
+                LogInfo($"Loaded image from config folder: {fileName}");
+
+            return loaded;
+        }
+
+        public bool Load(byte[] imageData)
+        {
+            if (imageData == null || imageData.Length == 0)
+                return false;
+
             Texture2D loadedTexture = new Texture2D(2, 2, TextureFormat.RGBA32, true, true);
-            if (!LoadTextureFromConfigDirectory(fileName, ref loadedTexture))
+            try
+            {
+                if (!loadedTexture.LoadImage(imageData))
+                {
+                    UnityEngine.Object.Destroy(loadedTexture);
+                    return false;
+                }
+            }
+            catch (Exception)
             {
                 UnityEngine.Object.Destroy(loadedTexture);
                 return false;
@@ -60,6 +83,59 @@ namespace Compass
                 UnityEngine.Object.Destroy(previousTexture);
 
             return true;
+        }
+
+        public bool TryReadValidFileData(out byte[] imageData)
+        {
+            imageData = null;
+            if (!TryReadFileData(out byte[] fileData))
+                return false;
+
+            Texture2D validationTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false, true);
+            bool valid;
+            try
+            {
+                valid = validationTexture.LoadImage(fileData);
+            }
+            catch (Exception)
+            {
+                valid = false;
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(validationTexture);
+            }
+
+            if (!valid)
+                return false;
+
+            imageData = fileData;
+            return true;
+        }
+
+        private bool TryReadFileData(out byte[] imageData)
+        {
+            imageData = null;
+            if (!File.Exists(filePath))
+                return false;
+
+            try
+            {
+                imageData = File.ReadAllBytes(filePath);
+                return imageData.Length > 0;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         public void Clear()

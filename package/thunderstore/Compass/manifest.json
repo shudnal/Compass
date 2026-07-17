@@ -1,6 +1,6 @@
 {
     "name": "Compass",
-    "version_number": "1.0.7",
+    "version_number": "1.1.0",
     "website_url": "https://github.com/shudnal/Compass",
     "description": "Yet another Compass. Performant and configurable. See players, pings and shouts at any distance. Pins with text. Compatible with aedenthorn's png files.",
     "dependencies": [

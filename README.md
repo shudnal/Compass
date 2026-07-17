@@ -15,6 +15,7 @@ Yet another Compass mod showing map pins in the middle top part of your screen.
 * an option to hold key to see pin text (or see it at all time with other config)
 * anchor position option to place compass relative to top or bottom side of the screen
 * detailed mode with a separate customizable image set
+* optional per-image server synchronization through Conditional Config Sync
 
 ## Pin style conditions config
 
@@ -63,6 +64,14 @@ File names to load from config directory:
 * underlay.png
 
 Both image sets are loaded at startup. Changes to any listed PNG are applied on the fly, and switching Detailed mode immediately selects the corresponding compass, center, and mask images.
+
+### Server image synchronization
+
+The `Server image sync` config section contains a separate server-controlled toggle for every listed PNG. All toggles are disabled by default.
+
+When a toggle is enabled, the server reads that PNG from its own `BepInEx/config/shudnal.Compass` directory and sends it to compatible clients through Conditional Config Sync. The synchronized image temporarily overrides the client's local file while connected to that server.
+
+Changes to an enabled PNG on the server are validated and sent again automatically. If an enabled optional file such as `overlay.png` or `underlay.png` is absent on the server, it is also hidden on clients. Disabling the toggle or leaving the server restores each client's local file.
 
 ## Installation (manual)
 Install Conditional Config Sync, then extract Compass.dll into your BepInEx\Plugins\ folder.

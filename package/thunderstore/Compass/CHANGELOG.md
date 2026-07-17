@@ -1,14 +1,13 @@
-# 1.0.7
-* added optional distance-aware pin text scaling
-* added detailed mode with separate compass, center, and mask images; both image sets are loaded and watched for changes
-* migrated configuration registration from ServerSync to Conditional Config Sync with per-setting ownership defaults and server policy support
-* fixed wide custom center images being cropped when no pin text is visible
-* added configurable pin icon and pin text offsets
+# 1.1.0
+* new feature: detailed mode with separate compass, center, and mask images. Thanks to BETLOG for providing images.
 * fixed default pin text placement in bottom anchor mode
+* added configurable pin icon and pin text offsets
+* migrated configuration registration to Conditional Config Sync with per-setting ownership defaults and server policy support
+* fixed wide custom center images being cropped when no pin text is visible
+* added optional per-image server synchronization for all compass PNG files through Conditional Config Sync
+* added optional distance-aware pin text scaling
 * fixed ignored pin names not being initialized at startup; exact and wildcard filters are now case-insensitive and wildcard patterns are cached
-* fixed pin icons retaining the previous custom color after the color setting is reset
 * fixed overlay images being rendered behind the compass
-* added safe runtime normalization for invalid pin style distance conditions
 * improved custom image hot reload handling for partial writes, atomic renames, and invalid PNG data
 
 # 1.0.6

@@ -19,7 +19,7 @@ namespace Compass
     {
         public const string pluginID = "shudnal.Compass";
         public const string pluginName = "Compass";
-        public const string pluginVersion = "1.0.7";
+        public const string pluginVersion = "1.1.0";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 
@@ -124,6 +124,7 @@ namespace Compass
             Game.isModded = true;
 
             CompassHUD.CheckImageFiles();
+            ImageSync.Initialize();
 
             SetupFileWatcher();
         }
@@ -136,8 +137,8 @@ namespace Compass
 
             modEnabled.SettingChanged += (s, e) => CompassHUD.UpdateParentObject();
 
-            orientation = config("Compass", "Orientation based on", defaultValue: OrientationType.Camera, "Orientation type. Camera direction or player eyes direction could be used as a center of a compass.");
-            anchorPosition = config("Compass", "Anchor position", defaultValue: AnchorPositionType.Top, "Defines whether compass is anchored to top or bottom side of the screen.");
+            orientation = config("Compass", "Orientation based on", defaultValue: OrientationType.Camera, "Orientation type. Camera direction or player eyes direction could be used as a center of a compass.", synchronizedSetting: true);
+            anchorPosition = config("Compass", "Anchor position", defaultValue: AnchorPositionType.Top, "Defines whether compass is anchored to top or bottom side of the screen.", synchronizedSetting: true);
             scale = config("Compass", "Scale", defaultValue: 1f, "Scale of whole compass component");
             offset = config("Compass", "Position offset", defaultValue: Vector2.zero, "Offset from selected anchor position. X moves compass left/right. Y moves compass down from top, up from bottom.");
             showCenter = config("Compass", "Show center", defaultValue: true, "Show center marker");
@@ -197,6 +198,9 @@ namespace Compass
             pinTextSize.SettingChanged += (s, e) => CompassHUD.UpdatePinTextStyle();
             pinTextColor.SettingChanged += (s, e) => CompassHUD.UpdatePinTextStyle();
             pinTextFormat.SettingChanged += (s, e) => CompassHUD.UpdatePinTextStyle();
+
+            ImageSync.Register((group, name, defaultValue, description) =>
+                serverConfig(group, name, defaultValue, description));
         }
 
         private void OnDestroy()
@@ -333,17 +337,25 @@ namespace Compass
             yield return new WaitForSecondsRealtime(imageReloadDelay);
 
             ImageFileInfo imageInfo = ImageFileInfo.GetImageInfo(imageID);
+            if (ImageSync.IsRemoteOverrideActive(imageID))
+            {
+                pendingImageReloads.Remove(imageID);
+                yield break;
+            }
+
             for (int attempt = 0; attempt < imageReloadAttempts; ++attempt)
             {
                 if (!File.Exists(imageInfo.filePath))
                 {
                     ImageFileInfo.TryClearFile(imageInfo.fileName);
+                    ImageSync.Publish(imageID);
                     pendingImageReloads.Remove(imageID);
                     yield break;
                 }
 
                 if (ImageFileInfo.TryLoadFile(imageInfo.fileName))
                 {
+                    ImageSync.Publish(imageID);
                     pendingImageReloads.Remove(imageID);
                     yield break;
                 }
@@ -353,35 +365,6 @@ namespace Compass
 
             pendingImageReloads.Remove(imageID);
             LogWarning($"Failed to reload image {imageInfo.fileName}. The previous valid image remains active.");
-        }
-
-        internal static bool LoadTextureFromConfigDirectory(string filename, ref Texture2D tex)
-        {
-            string fileInConfigFolder = Path.Combine(configDirectory, filename);
-            if (!File.Exists(fileInConfigFolder))
-                return false;
-
-            try
-            {
-                byte[] fileData = File.ReadAllBytes(fileInConfigFolder);
-                bool loaded = tex.LoadImage(fileData);
-                if (loaded)
-                    LogInfo($"Loaded image from config folder: {filename}");
-
-                return loaded;
-            }
-            catch (IOException)
-            {
-                return false;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return false;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
         }
 
         internal static byte[] GetEmbeddedFileData(string filename)

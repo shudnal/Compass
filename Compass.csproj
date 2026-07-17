@@ -37,6 +37,7 @@
     <Compile Include="CustomConfigs.cs" />
     <Compile Include="CompassHUD.cs" />
     <Compile Include="ImageFileInfo.cs" />
+    <Compile Include="ImageSync.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WildcardPattern.cs" />
   </ItemGroup>

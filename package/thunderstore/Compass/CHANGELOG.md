@@ -1,3 +1,7 @@
+# 1.1.1
+* Updated for the Valheim 1.0.7 release.
+* Updated required dependencies to BepInExPack Valheim 5.4.2350 and ConditionalConfigSync 1.0.5.
+
 # 1.1.0
 * new feature: detailed mode with separate compass, center, and mask images. Thanks to BETLOG for providing images.
 * fixed default pin text placement in bottom anchor mode

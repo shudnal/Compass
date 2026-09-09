@@ -81,6 +81,13 @@ The best way to handle configs is [Configuration Manager](https://thunderstore.i
 
 Or [Official BepInEx Configuration Manager](https://valheim.thunderstore.io/package/Azumatt/Official_BepInEx_ConfigurationManager/).
 
+## Dependencies
+
+- [BepInExPack Valheim 5.4.2350](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
+- [ConditionalConfigSync 1.0.5](https://thunderstore.io/c/valheim/p/shudnal/ConditionalConfigSync/)
+
+Install ConditionalConfigSync as a separate dependency; do not copy its DLLs into this mod's package.
+
 ## Donation
 [Buy Me a Coffee](https://buymeacoffee.com/shudnal)
 

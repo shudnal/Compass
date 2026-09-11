@@ -1,3 +1,9 @@
+# 1.1.2
+* Reused pin UI elements with a bounded inactive reserve instead of rebuilding the entire list when visible pin counts change.
+* Sampled orientation, distances and display shortcuts once per refresh, and removed allocating image selection and duplicate-pin scans.
+* Avoided redundant text and layout updates while preserving live pin positions, localization, UGC filtering and image reloads.
+* Fixed inconsistent ordering of overlapping event-area pins and invalid text transforms at zero icon scale.
+
 # 1.1.1
 * Updated for the Valheim 1.0.7 release.
 * Updated required dependencies to BepInExPack Valheim 5.4.2350 and ConditionalConfigSync 1.0.5.

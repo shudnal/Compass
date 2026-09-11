@@ -55,6 +55,9 @@ namespace Compass
 
         public static readonly List<Minimap.PinData> tempPins = new List<Minimap.PinData>();
         public static readonly List<PinElement> pinsList = new List<PinElement>();
+        private static readonly Dictionary<Minimap.PinData, float> pinDistances = new Dictionary<Minimap.PinData, float>();
+        private static readonly Comparison<Minimap.PinData> pinComparison = ComparePins;
+        private const int SparePinElements = 16;
 
         public static HashSet<string> filteredNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public static readonly List<WildcardPattern> filteredWildcardPatterns = new List<WildcardPattern>();
@@ -171,21 +174,26 @@ namespace Compass
         private static ImageFileInfo GetActiveImageInfo(string defaultId, string bottomId, string detailedId, string detailedBottomId)
         {
             bool isBottom = anchorPosition.Value == AnchorPositionType.Bottom;
-            string[] candidates = detailedMode.Value
-                ? isBottom
-                    ? new[] { detailedBottomId, bottomId, detailedId, defaultId }
-                    : new[] { detailedId, defaultId }
-                : isBottom
-                    ? new[] { bottomId, defaultId }
-                    : new[] { defaultId };
-
-            foreach (string id in candidates)
+            bool detailed = detailedMode.Value;
+            ImageFileInfo candidate;
+            if (detailed && isBottom)
             {
-                ImageFileInfo imageInfo = ImageFileInfo.GetImageInfo(id);
-                if (imageInfo.initialized)
-                    return imageInfo;
+                candidate = ImageFileInfo.GetImageInfo(detailedBottomId);
+                if (candidate.initialized)
+                    return candidate;
             }
-
+            if (isBottom)
+            {
+                candidate = ImageFileInfo.GetImageInfo(bottomId);
+                if (candidate.initialized)
+                    return candidate;
+            }
+            if (detailed)
+            {
+                candidate = ImageFileInfo.GetImageInfo(detailedId);
+                if (candidate.initialized)
+                    return candidate;
+            }
             return ImageFileInfo.GetImageInfo(defaultId);
         }
 
@@ -432,15 +440,22 @@ namespace Compass
             if (!modEnabled.Value || !Player.m_localPlayer || !compassObject)
                 return;
 
-            float angle = AnchorTransform.eulerAngles.y;
+            Transform anchor = AnchorTransform;
+            if (!anchor)
+                return;
+
+            float angle = anchor.eulerAngles.y;
 
             if (angle > 180)
                 angle -= 360;
 
             angle *= -Mathf.Deg2Rad;
 
-            compassTransform ??= compassObject.GetComponent<RectTransform>();
-            compassTransform.localPosition = Vector3.right * (compassWidth / 2) * angle / (2f * Mathf.PI) - new Vector3(compassWidth * 0.125f, 0, 0);
+            if (!compassTransform)
+                compassTransform = compassObject.GetComponent<RectTransform>();
+            Vector3 position = Vector3.right * (compassWidth / 2) * angle / (2f * Mathf.PI) - new Vector3(compassWidth * 0.125f, 0, 0);
+            if (compassTransform.localPosition != position)
+                compassTransform.localPosition = position;
 
             UpdatePins();
         }
@@ -476,86 +491,96 @@ namespace Compass
             pinsList.Clear();
 
             tempPins.Clear();
+            pinDistances.Clear();
         }
 
-        private static void UpdatePinList()
+        private static void UpdatePinList(Vector3 anchorPosition, CompassPinType dynamicPins)
         {
             tempPins.Clear();
+            pinDistances.Clear();
 
-            AddPinRange(Minimap.instance.m_pins);
+            Minimap minimap = Minimap.instance;
+            CompassPinType visibleTypes = showPins.Value;
+            Vector3 deathPoint = showOnlyLastDeath.Value ? Game.instance.GetPlayerProfile().GetDeathPoint() : Vector3.zero;
+            AddPinRange(minimap.m_pins, anchorPosition, dynamicPins, visibleTypes, deathPoint);
 
-            if (ShowAllPingPins())
-                AddPinRange(Minimap.instance.m_pingPins);
+            if ((dynamicPins & CompassPinType.Ping) != 0)
+                AddPinRange(minimap.m_pingPins, anchorPosition, dynamicPins, visibleTypes, deathPoint);
+            if ((dynamicPins & CompassPinType.Shout) != 0)
+                AddPinRange(minimap.m_shoutPins, anchorPosition, dynamicPins, visibleTypes, deathPoint);
+            if ((dynamicPins & CompassPinType.Player) != 0)
+                AddPinRange(minimap.m_playerPins, anchorPosition, dynamicPins, visibleTypes, deathPoint);
 
-            if (ShowAllShoutPins())
-                AddPinRange(Minimap.instance.m_shoutPins);
-
-            if (ShowAllPlayerPins())
-                AddPinRange(Minimap.instance.m_playerPins);
-
-            tempPins.Sort((x, y) => ComparePins(x, y));
-
-            static int ComparePins(Minimap.PinData x, Minimap.PinData y)
-            {
-                if (y.m_pos == x.m_pos)
-                {
-                    if (x.m_type == Minimap.PinType.EventArea)
-                        return -1;
-                    else if (y.m_type == Minimap.PinType.EventArea)
-                        return 1;
-
-                    return y.m_type.CompareTo(x.m_type);
-                }
-
-                return Utils.DistanceXZ(AnchorTransform.position, y.m_pos).CompareTo(Utils.DistanceXZ(AnchorTransform.position, x.m_pos));
-            }
+            tempPins.Sort(pinComparison);
         }
 
-        public static bool IsShortcutDown(KeyboardShortcut shortcut) => shortcut.MainKey != KeyCode.None && ZInput.GetKey(shortcut.MainKey) && shortcut.Modifiers.All(key => ZInput.GetKey(key));
+        private static int ComparePins(Minimap.PinData x, Minimap.PinData y)
+        {
+            if (ReferenceEquals(x, y))
+                return 0;
+            if (y.m_pos == x.m_pos)
+            {
+                bool xArea = x.m_type == Minimap.PinType.EventArea;
+                bool yArea = y.m_type == Minimap.PinType.EventArea;
+                if (xArea != yArea)
+                    return xArea ? -1 : 1;
+                return ((int)y.m_type).CompareTo((int)x.m_type);
+            }
+            return pinDistances[y].CompareTo(pinDistances[x]);
+        }
+
+        public static bool IsShortcutDown(KeyboardShortcut shortcut)
+        {
+            if (shortcut.MainKey == KeyCode.None || !ZInput.GetKey(shortcut.MainKey))
+                return false;
+            foreach (KeyCode key in shortcut.Modifiers)
+                if (!ZInput.GetKey(key))
+                    return false;
+            return true;
+        }
 
         private static bool ShowAllPlayerPins() => alwaysShowPinText.Value || IsShortcutDown(holdToAlwaysShowPlayerPin.Value);
-
         private static bool ShowAllShoutPins() => alwaysShowPinText.Value || IsShortcutDown(holdToAlwaysShowShouts.Value);
-
         private static bool ShowAllPingPins() => alwaysShowPinText.Value || IsShortcutDown(holdToAlwaysShowPings.Value);
-
         private static bool ShowPinText() => alwaysShowPinText.Value || IsShortcutDown(holdToShowText.Value);
 
-        private static void AddPinRange(List<Minimap.PinData> pinList) => pinList.Do(AddPin);
-
-        private static void AddPin(Minimap.PinData pin)
+        private static void AddPinRange(List<Minimap.PinData> pinList, Vector3 anchorPosition, CompassPinType dynamicPins,
+            CompassPinType visibleTypes, Vector3 deathPoint)
         {
-            if (pin == null)
-                return;
-
-            if (hideChecked.Value && pin.m_checked)
-                return;
-
-            if (hideShared.Value && pin.m_ownerID != 0L)
-                return;
-
-            CompassPinType pinType = GetPinType(pin.m_type);
-            if (!showPins.Value.HasFlag(pinType))
-                return;
-
-            if (showOnlyLastDeath.Value && (pinType == CompassPinType.Death) && pin.m_pos != Game.instance.GetPlayerProfile().GetDeathPoint())
-                return;
-
-            if (!IsDynamicPinToShow(pinType))
+            float minimumSquared = effectivePinsStyleConditions.x * effectivePinsStyleConditions.x;
+            float maximumSquared = effectivePinsStyleConditions.w * effectivePinsStyleConditions.w;
+            bool hideCheckedPins = hideChecked.Value;
+            bool hideSharedPins = hideShared.Value;
+            bool lastDeathOnly = showOnlyLastDeath.Value;
+            foreach (Minimap.PinData pin in pinList)
             {
-                float distance = Utils.DistanceXZ(AnchorTransform.position, pin.m_pos);
-                if (distance < effectivePinsStyleConditions.x || distance > effectivePinsStyleConditions.w)
-                    return;
+                if (pin == null || pinDistances.ContainsKey(pin) || (hideCheckedPins && pin.m_checked) || (hideSharedPins && pin.m_ownerID != 0L))
+                    continue;
+                CompassPinType type = GetPinType(pin.m_type);
+                if ((visibleTypes & type) != type || (lastDeathOnly && type == CompassPinType.Death && pin.m_pos != deathPoint))
+                    continue;
 
-                if (filteredNames.Contains(pin.m_name))
-                    return;
-
-                if (filteredWildcardPatterns.Any(pattern => pattern.IsMatch(pin.m_name)))
-                    return;
-            }
-
-            if (!tempPins.Contains(pin))
+                float dx = anchorPosition.x - pin.m_pos.x;
+                float dz = anchorPosition.z - pin.m_pos.z;
+                float squaredDistance = dx * dx + dz * dz;
+                if ((dynamicPins & type) == 0)
+                {
+                    if (squaredDistance < minimumSquared || squaredDistance > maximumSquared || filteredNames.Contains(pin.m_name))
+                        continue;
+                    bool filtered = false;
+                    foreach (WildcardPattern pattern in filteredWildcardPatterns)
+                    {
+                        if (!pattern.IsMatch(pin.m_name))
+                            continue;
+                        filtered = true;
+                        break;
+                    }
+                    if (filtered)
+                        continue;
+                }
+                pinDistances.Add(pin, squaredDistance);
                 tempPins.Add(pin);
+            }
         }
 
         private static CompassPinType GetPinType(Minimap.PinType pinType)
@@ -583,21 +608,33 @@ namespace Compass
             };
         }
 
-        public static void UpdatePins()
+        public static void UpdatePins() => UpdatePinsCore(AnchorTransform);
+
+        private static void UpdatePinsCore(Transform anchor)
         {
-            if (!pinsRootObject|| !pinsRootObject.gameObject.activeInHierarchy || AnchorTransform == null)
+            if (!pinsRootObject || !pinsRootObject.gameObject.activeInHierarchy || !anchor || !Minimap.instance)
                 return;
 
-            UpdatePinList();
+            Vector3 anchorWorldPosition = anchor.position;
+            Matrix4x4 worldToLocal = anchor.worldToLocalMatrix;
+            CompassPinType dynamicPins = CompassPinType.None;
+            if (ShowAllPlayerPins()) dynamicPins |= CompassPinType.Player;
+            if (ShowAllShoutPins()) dynamicPins |= CompassPinType.Shout;
+            if (ShowAllPingPins()) dynamicPins |= CompassPinType.Ping;
+            bool showNames = ShowPinText();
+            UpdatePinList(anchorWorldPosition, dynamicPins);
 
-            if (pinsList.Count != tempPins.Count)
+            // Reuse existing elements when pins enter/leave range. Bound the inactive reserve.
+            while (pinsList.Count < tempPins.Count)
+                new PinElement();
+            for (int i = pinsList.Count - 1; i >= tempPins.Count + SparePinElements; i--)
             {
-                pinsList.Do(pin => pin.Destroy());
-                pinsList.Clear();
-
-                for (int i = 0; i < tempPins.Count; i++)
-                    new PinElement();
+                pinsList[i].Destroy();
+                pinsList.RemoveAt(i);
             }
+            for (int i = tempPins.Count; i < pinsList.Count; i++)
+                if (pinsList[i].rect.gameObject.activeSelf)
+                    pinsList[i].rect.gameObject.SetActive(false);
 
             Sprite activeCompassSprite = GetActiveCompassImageInfo().sprite;
             if (!activeCompassSprite)
@@ -609,6 +646,15 @@ namespace Compass
             Vector3 configuredPinOffset = new Vector3(pinOffset.Value.x, -pinOffset.Value.y);
             Vector3 configuredNameOffset = new Vector3(pinNameOffset.Value.x, -pinNameOffset.Value.y);
             Color configuredPinColor = pinsColor.Value == Color.clear ? Color.white : pinsColor.Value;
+            Vector2 configuredScale = pinsScale.Value;
+            Vector2 configuredAlpha = pinsAlpha.Value;
+            Vector4 style = effectivePinsStyleConditions;
+            bool scaleDistantNames = pinNameScaleDistant.Value;
+            float textSize = pinTextSize.Value;
+            Color textColor = pinTextColor.Value;
+            FontStyles textFormat = pinTextFormat.Value;
+            Vector2 iconSize = Vector2.one * pinsRootObject.sizeDelta.y;
+            float animatedScale = 0.9f + Mathf.Sin(Time.time * 5f) * 0.2f;
 
             for (int i = 0; i < tempPins.Count; i++)
             {
@@ -616,57 +662,87 @@ namespace Compass
                 Minimap.PinData pin = tempPins[i];
 
                 pinElement.name = pin.m_name;
-                pinElement.image.sprite = pin.m_icon;
+                if (!pinElement.rect.gameObject.activeSelf)
+                    pinElement.rect.gameObject.SetActive(true);
+                if (pinElement.image.sprite != pin.m_icon)
+                    pinElement.image.sprite = pin.m_icon;
+                // Existing pooled elements must also follow live compass texture/size changes.
+                if (pinElement.rect.sizeDelta != iconSize)
+                    pinElement.rect.sizeDelta = iconSize;
 
-                bool isDynamicPin = IsDynamicPinToShow(pin.m_type);
+                bool isDynamicPin = (dynamicPins & GetPinType(pin.m_type)) != 0;
+                float distance = Mathf.Sqrt(pinDistances[pin]);
+                if (distance > style.y && isDynamicPin)
+                    distance = style.y;
 
-                float distance = Utils.DistanceXZ(AnchorTransform.position, pin.m_pos);
-                if (distance > effectivePinsStyleConditions.y && isDynamicPin)
-                    distance = effectivePinsStyleConditions.y;
+                float scale = Mathf.Lerp(configuredScale.x, configuredScale.y, (distance - style.y) / (style.z - style.y));
+                float alpha = Mathf.Lerp(configuredAlpha.x, configuredAlpha.y, (distance - style.z) / (style.w - style.z));
+                float textDistanceScale = scaleDistantNames ? Mathf.Lerp(1f, 0.8f, Mathf.InverseLerp(style.z, style.w, distance)) : 1f;
 
-                float scale = Mathf.Lerp(pinsScale.Value.x, pinsScale.Value.y, (distance - effectivePinsStyleConditions.y) / (effectivePinsStyleConditions.z - effectivePinsStyleConditions.y));
-                float alpha = Mathf.Lerp(pinsAlpha.Value.x, pinsAlpha.Value.y, (distance - effectivePinsStyleConditions.z) / (effectivePinsStyleConditions.w - effectivePinsStyleConditions.z));
-                float textDistanceScale = pinNameScaleDistant.Value ? Mathf.Lerp(1f, 0.8f, Mathf.InverseLerp(effectivePinsStyleConditions.z, effectivePinsStyleConditions.w, distance)) : 1f;
+                Vector3 visualScale = Vector3.one * scale;
+                if (pin.m_animate && !isDynamicPin)
+                    visualScale *= animatedScale;
+                if (pinElement.rect.localScale != visualScale)
+                    pinElement.rect.localScale = visualScale;
+                Vector3 localPin = worldToLocal.MultiplyPoint3x4(new Vector3(pin.m_pos.x, anchorWorldPosition.y, pin.m_pos.z));
+                Vector3 position = Vector3.right * (compassRect.width / 2) * GetAtan2(localPin) / (2f * Mathf.PI) + configuredPinOffset;
+                if (pinElement.rect.localPosition != position)
+                    pinElement.rect.localPosition = position;
+                Color color = new Color(configuredPinColor.r, configuredPinColor.g, configuredPinColor.b, pin.m_animate ? configuredAlpha.x : alpha);
+                if (pinElement.image.color != color)
+                    pinElement.image.color = color;
+                if (pinElement.rect.GetSiblingIndex() != i)
+                    pinElement.rect.SetSiblingIndex(i);
+                if (pinElement.checkedIcon && pinElement.checkedIcon.activeSelf != pin.m_checked)
+                    pinElement.checkedIcon.SetActive(pin.m_checked);
 
-                pinElement.rect.localScale = Vector3.one * scale;
-                pinElement.rect.localPosition = Vector3.right * (compassRect.width / 2) * GetAngle(pin.m_pos) / (2f * Mathf.PI) + configuredPinOffset;
-                pinElement.image.color = new Color(configuredPinColor.r, configuredPinColor.g, configuredPinColor.b, pin.m_animate ? pinsAlpha.Value.x : alpha);
-                pinElement.rect.SetSiblingIndex(i);
-                pinElement.checkedIcon?.SetActive(pin.m_checked);
-
-                bool showText = pinElement.text != null && !string.IsNullOrWhiteSpace(pin.m_name) && (isDynamicPin || ShowPinText());
-                pinElement.text?.gameObject.SetActive(showText);
+                bool showText = pinElement.text != null && !string.IsNullOrWhiteSpace(pin.m_name) && (isDynamicPin || showNames);
+                if (pinElement.text && pinElement.text.gameObject.activeSelf != showText)
+                    pinElement.text.gameObject.SetActive(showText);
 
                 if (showText)
                 {
-                    pinElement.text.SetText(GetPinText(pin));
-                    pinElement.text.enableAutoSizing = false;
-                    pinElement.text.fontSize = pinTextSize.Value;
-                    pinElement.text.color = pinTextColor.Value;
-                    pinElement.text.fontStyle = pinTextFormat.Value;
-                    pinElement.text.verticalAlignment = isBottomAnchor ? VerticalAlignmentOptions.Bottom : VerticalAlignmentOptions.Top;
+                    // Keep localization and UGC checks live; only avoid rebuilding identical text/layout.
+                    string text = GetPinText(pin);
+                    if (pinElement.text.text != text)
+                        pinElement.text.SetText(text);
+                    if (pinElement.text.enableAutoSizing)
+                        pinElement.text.enableAutoSizing = false;
+                    if (pinElement.text.fontSize != textSize)
+                        pinElement.text.fontSize = textSize;
+                    if (pinElement.text.color != textColor)
+                        pinElement.text.color = textColor;
+                    if (pinElement.text.fontStyle != textFormat)
+                        pinElement.text.fontStyle = textFormat;
+                    VerticalAlignmentOptions alignment = isBottomAnchor ? VerticalAlignmentOptions.Bottom : VerticalAlignmentOptions.Top;
+                    if (pinElement.text.verticalAlignment != alignment)
+                        pinElement.text.verticalAlignment = alignment;
 
                     RectTransform textRect = pinElement.text.rectTransform;
 
-                    textRect.anchorMin = new Vector2(0.5f, 0.5f);
-                    textRect.anchorMax = new Vector2(0.5f, 0.5f);
-                    textRect.pivot = new Vector2(0.5f, isBottomAnchor ? 0f : 1f);
-                    textRect.localScale = Vector3.one * (textDistanceScale / scale);
+                    Vector2 centered = new Vector2(0.5f, 0.5f);
+                    if (textRect.anchorMin != centered) textRect.anchorMin = centered;
+                    if (textRect.anchorMax != centered) textRect.anchorMax = centered;
+                    Vector2 pivot = new Vector2(0.5f, isBottomAnchor ? 0f : 1f);
+                    if (textRect.pivot != pivot) textRect.pivot = pivot;
+                    // A zero icon scale must not introduce infinities into the UI transform.
+                    float inverseScale = Mathf.Abs(scale) > 0.0001f ? 1f / scale : 0f;
+                    Vector3 textScale = Vector3.one * (textDistanceScale * inverseScale);
+                    if (textRect.localScale != textScale) textRect.localScale = textScale;
 
-                    float iconHalfHeight = pinElement.rect.sizeDelta.y / 2f;
+                    float iconHalfHeight = iconSize.y / 2f;
                     float verticalDirection = isBottomAnchor ? 1f : -1f;
 
-                    textRect.anchoredPosition = new Vector2(configuredNameOffset.x / scale, verticalDirection * iconHalfHeight + configuredNameOffset.y / scale);
+                    Vector2 namePosition = new Vector2(configuredNameOffset.x * inverseScale, verticalDirection * iconHalfHeight + configuredNameOffset.y * inverseScale);
+                    if (textRect.anchoredPosition != namePosition) textRect.anchoredPosition = namePosition;
 
                     textIsShown = true;
                 }
 
-                if (pin.m_animate && !isDynamicPin)
-                    pinElement.rect.localScale *= 0.9f + Mathf.Sin(Time.time * 5f) * 0.2f;
             }
 
-            maskComponent.enabled = !textIsShown;
-            maskImage.enabled = !textIsShown;
+            if (maskComponent.enabled != !textIsShown) maskComponent.enabled = !textIsShown;
+            if (maskImage.enabled != !textIsShown) maskImage.enabled = !textIsShown;
         }
 
         public static bool IsDynamicPinToShow(CompassPinType pinType)

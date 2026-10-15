@@ -544,8 +544,7 @@ namespace Compass
         private static bool ShowAllPingPins() => alwaysShowPinText.Value || IsShortcutDown(holdToAlwaysShowPings.Value);
         private static bool ShowPinText() => alwaysShowPinText.Value || IsShortcutDown(holdToShowText.Value);
 
-        private static void AddPinRange(List<Minimap.PinData> pinList, Vector3 anchorPosition, CompassPinType dynamicPins,
-            CompassPinType visibleTypes, Vector3 deathPoint)
+        private static void AddPinRange(List<Minimap.PinData> pinList, Vector3 anchorPosition, CompassPinType dynamicPins, CompassPinType visibleTypes, Vector3 deathPoint)
         {
             float minimumSquared = effectivePinsStyleConditions.x * effectivePinsStyleConditions.x;
             float maximumSquared = effectivePinsStyleConditions.w * effectivePinsStyleConditions.w;
@@ -557,7 +556,7 @@ namespace Compass
                 if (pin == null || pinDistances.ContainsKey(pin) || (hideCheckedPins && pin.m_checked) || (hideSharedPins && pin.m_ownerID != 0L))
                     continue;
 
-                if (!IsPinTypeVisibleInMinimap(pin.m_type))
+                if (regularMapPinVisibility.Value && !IsPinTypeVisibleInMinimap(pin.m_type))
                     continue;
                 
                 CompassPinType type = GetPinType(pin.m_type);

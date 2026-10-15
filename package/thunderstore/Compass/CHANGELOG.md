@@ -1,3 +1,6 @@
+# 1.1.3
+* compass pin type filtering depends on regular map pin filtering settings
+
 # 1.1.2
 * Reused pin UI elements with a bounded inactive reserve instead of rebuilding the entire list when visible pin counts change.
 * Sampled orientation, distances and display shortcuts once per refresh, and removed allocating image selection and duplicate-pin scans.

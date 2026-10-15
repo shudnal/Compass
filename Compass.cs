@@ -19,7 +19,7 @@ namespace Compass
     {
         public const string pluginID = "shudnal.Compass";
         public const string pluginName = "Compass";
-        public const string pluginVersion = "1.1.2";
+        public const string pluginVersion = "1.1.3";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 
@@ -55,6 +55,7 @@ namespace Compass
         public static ConfigEntry<bool> hideChecked;
         public static ConfigEntry<bool> hideShared;
         public static ConfigEntry<bool> alwaysShowPinText;
+        public static ConfigEntry<bool> regularMapPinVisibility;
         public static ConfigEntry<KeyboardShortcut> holdToAlwaysShowPings;
         public static ConfigEntry<KeyboardShortcut> holdToAlwaysShowShouts;
         public static ConfigEntry<KeyboardShortcut> holdToAlwaysShowPlayerPin;
@@ -166,6 +167,7 @@ namespace Compass
             holdToAlwaysShowPings = config("Pins", "Hold to show pings at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show player pings without distance filter.", synchronizedSetting: true);
             holdToShowText = config("Pins", "Hold to show pin text", defaultValue: new KeyboardShortcut(KeyCode.LeftControl, KeyCode.LeftAlt), "Hold to show pin text if it is set.", synchronizedSetting: true);
             alwaysShowPinText = config("Pins", "Always show pin text", defaultValue: false, "Always show pin text if it is set.", synchronizedSetting: true);
+            regularMapPinVisibility = config("Pins", "Use regular map pin filtering settings", defaultValue: true, "Compass pin visilibity will depend on regular map pin visibility settings", synchronizedSetting: true);
 
             showPins.SettingChanged += (s, e) => CompassHUD.UpdatePinsObject();
             pinNamesToIgnore.SettingChanged += (s, e) => UpdatePinFilterNames();

@@ -556,6 +556,10 @@ namespace Compass
             {
                 if (pin == null || pinDistances.ContainsKey(pin) || (hideCheckedPins && pin.m_checked) || (hideSharedPins && pin.m_ownerID != 0L))
                     continue;
+
+                if (!IsPinTypeVisibleInMinimap(pin.m_type))
+                    continue;
+                
                 CompassPinType type = GetPinType(pin.m_type);
                 if ((visibleTypes & type) != type || (lastDeathOnly && type == CompassPinType.Death && pin.m_pos != deathPoint))
                     continue;
@@ -583,6 +587,19 @@ namespace Compass
             }
         }
 
+        private static bool IsPinTypeVisibleInMinimap(Minimap.PinType pinType)
+        {
+            Minimap minimap = Minimap.instance;
+            if (minimap == null || minimap.m_visibleIconTypes == null)
+                return true;
+
+            int index = (int)pinType;
+            if (index < 0 || index >= minimap.m_visibleIconTypes.Length)
+                return true;
+
+            return minimap.m_visibleIconTypes[index];
+        }
+        
         private static CompassPinType GetPinType(Minimap.PinType pinType)
         {
             return pinType switch

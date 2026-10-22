@@ -24,7 +24,17 @@ namespace Compass
             new Color32(60, 164, 148, 255),  // Teal
             new Color32(204, 100, 188, 255), // Heather
             new Color32(220, 212, 188, 255), // Ivory
-            new Color32(164, 188, 100, 255)  // Moss
+            new Color32(164, 188, 100, 255), // Moss
+            new Color32(77, 123, 193, 255),  // Cobalt
+            new Color32(233, 160, 198, 255), // Rose
+            new Color32(197, 144, 127, 255), // Clay
+            new Color32(145, 228, 224, 255), // Ice cyan
+            new Color32(205, 192, 238, 255), // Lavender
+            new Color32(232, 123, 79, 255),  // Ember orange
+            new Color32(137, 156, 168, 255), // Slate
+            new Color32(240, 182, 154, 255), // Peach
+            new Color32(161, 214, 172, 255), // Mint
+            new Color32(199, 223, 120, 255)  // Lime
         };
 
         private static readonly ConfigEntry<Color>[] colorEntries = new ConfigEntry<Color>[colorCount];

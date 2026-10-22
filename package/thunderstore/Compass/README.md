@@ -16,7 +16,7 @@ Yet another Compass mod showing map pins in the middle top part of your screen.
 * anchor position option to place compass relative to top or bottom side of the screen
 * detailed mode with a separate customizable image set
 * optional per-image server synchronization through Conditional Config Sync
-* player icon colors assigned by the server, with 10 default colors and 20 extra color slots
+* player icon colors assigned by the server, with 20 default colors and 10 extra color slots
 
 ## Player colors
 
@@ -26,7 +26,7 @@ Install Compass on the server and on each client to show the same player colors 
 
 `Random assignment` is off by default. Turn it on to choose a random unused color for each new connection. If all colors are in use, the server repeats the palette in order. Changing this setting does not change the colors of players who are already connected.
 
-`Color 01` through `Color 10` have these defaults:
+`Color 01` through `Color 20` have these defaults:
 
 | Setting | Color | RGB hex |
 | --- | --- | --- |
@@ -40,8 +40,20 @@ Install Compass on the server and on each client to show the same player colors 
 | Color 08 | Heather | `#CC64BC` |
 | Color 09 | Ivory | `#DCD4BC` |
 | Color 10 | Moss | `#A4BC64` |
+| Color 11 | Cobalt | `#4D7BC1` |
+| Color 12 | Rose | `#E9A0C6` |
+| Color 13 | Clay | `#C5907F` |
+| Color 14 | Ice cyan | `#91E4E0` |
+| Color 15 | Lavender | `#CDC0EE` |
+| Color 16 | Ember orange | `#E87B4F` |
+| Color 17 | Slate | `#899CA8` |
+| Color 18 | Peach | `#F0B69A` |
+| Color 19 | Mint | `#A1D6AC` |
+| Color 20 | Lime | `#C7DF78` |
 
-`Color 11` through `Color 30` are unused by default. Set a color with alpha greater than 0 to use an extra slot. Set alpha to 0 to disable a slot. Other alpha values keep the original icon transparency. Duplicate RGB colors count as one color.
+`Color 21` through `Color 30` are unused by default. Set a color with alpha greater than 0 to use an extra slot. Set alpha to 0 to disable a slot. Other alpha values keep the original icon transparency. Duplicate RGB colors count as one color.
+
+Existing config values are kept when you update the mod. If you used an earlier build with empty slots 11 through 20, reset those entries to their defaults in Configuration Manager to enable the added colors.
 
 Color changes apply while the game is running. Players keep their assigned slots when you edit a color. If you disable an assigned slot, its players receive another available color. Disable all slots, or turn off `Enabled`, to use the regular icons.
 

@@ -680,8 +680,10 @@ namespace Compass
                 pinElement.name = pin.m_name;
                 if (!pinElement.rect.gameObject.activeSelf)
                     pinElement.rect.gameObject.SetActive(true);
-                if (pinElement.image.sprite != pin.m_icon)
-                    pinElement.image.sprite = pin.m_icon;
+                bool hasPlayerColor = PlayerIconColors.TryGetIcon(pin, out Sprite playerIcon);
+                Sprite icon = hasPlayerColor ? playerIcon : pin.m_icon;
+                if (pinElement.image.sprite != icon)
+                    pinElement.image.sprite = icon;
                 // Existing pooled elements must also follow live compass texture/size changes.
                 if (pinElement.rect.sizeDelta != iconSize)
                     pinElement.rect.sizeDelta = iconSize;
@@ -704,7 +706,8 @@ namespace Compass
                 Vector3 position = Vector3.right * (compassRect.width / 2) * GetAtan2(localPin) / (2f * Mathf.PI) + configuredPinOffset;
                 if (pinElement.rect.localPosition != position)
                     pinElement.rect.localPosition = position;
-                Color color = new Color(configuredPinColor.r, configuredPinColor.g, configuredPinColor.b, pin.m_animate ? configuredAlpha.x : alpha);
+                Color iconColor = hasPlayerColor ? Color.white : configuredPinColor;
+                Color color = new Color(iconColor.r, iconColor.g, iconColor.b, pin.m_animate ? configuredAlpha.x : alpha);
                 if (pinElement.image.color != color)
                     pinElement.image.color = color;
                 if (pinElement.rect.GetSiblingIndex() != i)

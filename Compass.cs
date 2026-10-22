@@ -203,6 +203,16 @@ namespace Compass
 
             ImageSync.Register((group, name, defaultValue, description) =>
                 serverConfig(group, name, defaultValue, description));
+
+            PlayerColorSync.Register(
+                (group, name, defaultValue, description) => serverConfig(group, name, defaultValue, description),
+                (group, name, defaultValue, description) => serverConfig(group, name, defaultValue, description));
+        }
+
+        private void LateUpdate()
+        {
+            PlayerColorSync.Update();
+            PlayerIconColors.Update();
         }
 
         private void OnDestroy()
@@ -216,6 +226,7 @@ namespace Compass
 
             pendingImageReloads.Clear();
 
+            PlayerColorSync.Shutdown();
             Config.Save();
             instance = null;
             harmony?.UnpatchSelf();

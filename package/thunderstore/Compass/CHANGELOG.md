@@ -1,4 +1,4 @@
-# Unreleased
+# 1.1.4
 * Added player colors on the compass. The server assigns colors from a configurable palette, with an option to choose unused colors at random.
 
 # 1.1.3

@@ -53,8 +53,6 @@ Install Compass on the server and on each client to show the same player colors 
 
 `Color 21` through `Color 30` are unused by default. Set a color with alpha greater than 0 to use an extra slot. Set alpha to 0 to disable a slot. Other alpha values keep the original icon transparency. Duplicate RGB colors count as one color.
 
-Existing config values are kept when you update the mod. If you used an earlier build with empty slots 11 through 20, reset those entries to their defaults in Configuration Manager to enable the added colors.
-
 Color changes apply while the game is running. Players keep their assigned slots when you edit a color. If you disable an assigned slot, its players receive another available color. Disable all slots, or turn off `Enabled`, to use the regular icons.
 
 The colored icons keep the original outline, details, and transparency. They use the usual distance, size, and visibility settings. `Pin style / Color` does not tint these icons. Players with a hidden position stay hidden.

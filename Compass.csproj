@@ -39,6 +39,8 @@
     <Compile Include="CompassHUD.cs" />
     <Compile Include="ImageFileInfo.cs" />
     <Compile Include="ImageSync.cs" />
+    <Compile Include="PlayerColorSync.cs" />
+    <Compile Include="PlayerIconColors.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WildcardPattern.cs" />
   </ItemGroup>
@@ -148,14 +150,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="ILRepack.targets" />
+    <None Include="UpdateThunderstoreManifest.ps1" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>xcopy "$(TargetDir)\$(TargetFileName)" "$(ProjectDir)package\thunderstore\$(SolutionName)\" /q /y /i
-
-echo Copy to thunderstore folder
-if $(ConfigurationName) == Debug (powershell Compress-Archive -Path '$(ProjectDir)\package\thunderstore\$(SolutionName)\*' -DestinationPath '$(ProjectDir)\package\thunderstore\$(SolutionName).zip' -Force)
-
-echo Copy to r2 folder
-xcopy "$(TargetDir)\$(TargetFileName)" "D:\r2modman\Valheim\profiles\beta\BepInEx\plugins\shudnal-$(SolutionName)\" /q /y /i</PostBuildEvent>
-  </PropertyGroup>
+  <Import Project="ILRepack.targets" />
 </Project>

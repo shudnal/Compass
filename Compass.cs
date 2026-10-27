@@ -162,10 +162,10 @@ namespace Compass
             showOnlyLastDeath = config("Pins", "Show only last death", defaultValue: true, "Death pins except the last one will be hidden.", synchronizedSetting: true);
             hideChecked = config("Pins", "Hide checked pins", defaultValue: false, "Hide pins checked by red cross.", synchronizedSetting: true);
             hideShared = config("Pins", "Hide shared pins", defaultValue: false, "Hide pins shared via Cartography Table.", synchronizedSetting: true);
-            holdToAlwaysShowShouts = config("Pins", "Hold to show shouts at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show player shouts without distance filter.", synchronizedSetting: true);
-            holdToAlwaysShowPlayerPin = config("Pins", "Hold to show players at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show players with public positions without distance filter.", synchronizedSetting: true);
-            holdToAlwaysShowPings = config("Pins", "Hold to show pings at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show player pings without distance filter.", synchronizedSetting: true);
-            holdToShowText = config("Pins", "Hold to show pin text", defaultValue: new KeyboardShortcut(KeyCode.LeftControl, KeyCode.LeftAlt), "Hold to show pin text if it is set.", synchronizedSetting: true);
+            holdToAlwaysShowShouts = config("Pins", "Hold to show shouts at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show player shouts without distance filter.");
+            holdToAlwaysShowPlayerPin = config("Pins", "Hold to show players at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show players with public positions without distance filter.");
+            holdToAlwaysShowPings = config("Pins", "Hold to show pings at any distance", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to show player pings without distance filter.");
+            holdToShowText = config("Pins", "Hold to show pin text", defaultValue: new KeyboardShortcut(KeyCode.LeftControl, KeyCode.LeftAlt), "Hold to show pin text if it is set.");
             alwaysShowPinText = config("Pins", "Always show pin text", defaultValue: false, "Always show pin text if it is set.", synchronizedSetting: true);
             regularMapPinVisibility = config("Pins", "Use regular map pin filtering settings", defaultValue: true, "Compass pin visilibity will depend on regular map pin visibility settings", synchronizedSetting: true);
 
